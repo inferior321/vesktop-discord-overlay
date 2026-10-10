@@ -1,0 +1,48 @@
+name: Bug report
+description: Something doesn't work as described in the README
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please don't include screenshots of your chats or anything personal from your Discord.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Overlay version
+      description: "`python3 ~/vesktop-discord-overlay/main.py --version`"
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Linux distribution and desktop
+      placeholder: "Linux Mint 22.3, Cinnamon"
+    validations:
+      required: true
+  - type: input
+    id: session
+    attributes:
+      label: Session type
+      description: "`echo $XDG_SESSION_TYPE` (the overlay needs x11)"
+      placeholder: "x11"
+  - type: input
+    id: vesktop
+    attributes:
+      label: Vesktop version
+      description: "`flatpak info dev.vencord.Vesktop | grep Version`"
+      placeholder: "1.6.7"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: The end of `~/.cache/vesktop-discord-overlay/overlay.log` (check it for anything personal first).
+      render: text
