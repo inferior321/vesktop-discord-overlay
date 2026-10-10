@@ -29,7 +29,7 @@ class HotkeyListener(threading.Thread):
             root.grab_key(keycode, self.modifiers | extra, True, X.GrabModeAsync, X.GrabModeAsync, onerror=catch)
         disp.sync()
         if catch.get_error():
-            self.failure = "That hotkey is already taken by another program."
+            self.failure = "The hotkey is already taken by another program"
             self.ready.set()
             return
         self.ready.set()

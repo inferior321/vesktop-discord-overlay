@@ -34,6 +34,10 @@ client code; it never sees or stores your login token.
 - **The debug port.** The overlay reaches Vesktop through Chromium's remote-debugging port (9222). While
   Vesktop runs with that port open, any program running as you on this computer could control your Discord
   session. The port only listens on your own machine (127.0.0.1); other computers can't reach it.
+- **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
+  Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
+  stop working until it's updated to match. Version 1.0.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop. The overlay itself downloads only
   the images, GIFs and thumbnails it shows (from Discord's and YouTube's servers) and caches them in
   `~/.cache/vesktop-discord-overlay`.
@@ -148,7 +152,7 @@ if you want.
 | Right-click a friend, server or channel in the list | Mark as read (a server: all its channels), Open in Vesktop |
 | Ctrl+M / Ctrl+D | Mute / deafen |
 | Ctrl+Shift+D, or **Disconnect** (shown while in voice) | Leave the voice channel |
-| The dot at the left of the bottom bar | Your status: click to pick Online, Idle, Do Not Disturb or Invisible |
+| Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible |
 | ✎ beside a chat in the list | You left an unsent draft there |
 | F1, or hover the **?** in the bottom-right corner | List of all these shortcuts |
 | Click an image or GIF | View it large inside the panel: ←/→ flip through the chat's media, **Copy** / **Save** (to Downloads), Esc or a click closes |
@@ -162,10 +166,11 @@ The panel's opacity is remembered in `~/.config/vesktop-discord-overlay/state.js
 
 ## Troubleshooting
 
-- **Nothing happens when I press the hotkey.** The panel only opens while Vesktop is running. If you started
-  the overlay from a terminal, check its output: another program may already use Ctrl+Shift+` (pick another
-  key in `config.py`). When started from the app menu, the output goes to
-  `~/.cache/vesktop-discord-overlay/overlay.log`.
+- **Messages about what's wrong.** If the overlay can't work (a Wayland session, a missing package, Vesktop
+  not running or not the Flatpak, the hotkey taken), it says so in a desktop notification (and in the terminal, if you started
+  it from one) with what to do. Its log is `~/.cache/vesktop-discord-overlay/overlay.log`.
+- **"The hotkey is already taken by another program".** Something else already uses Ctrl+Shift+`. Pick
+  another key in `config.py` (`HOTKEY_KEYSYM`, `HOTKEY_MODIFIERS`, `HOTKEY_LABEL`).
 - **The panel says "Vesktop isn't reachable".** Vesktop is running without the debug port. Quit it from its
   tray icon and start it from the **Vesktop Discord Overlay** menu entry (or with the command above).
 - **It doesn't work at all on my desktop.** Check that you're on X11: `echo $XDG_SESSION_TYPE` should print
@@ -197,6 +202,7 @@ The panel's opacity is remembered in `~/.config/vesktop-discord-overlay/state.js
 | `vesktop_discord_overlay/bridge.js` | Runs inside Vesktop: reads Discord's stores, sends, edits and reacts, fetches emoji/GIFs, reports new messages and typing as they happen |
 | `vesktop_discord_overlay/hotkey.py` | Global hotkey (X11 key grab) |
 | `vesktop_discord_overlay/system.py` | Process / window helpers: Vesktop start/quit, debug port check, xdotool |
+| `vesktop_discord_overlay/preflight.py` | Startup checks (Wayland, missing packages) with plain-language messages |
 | `vesktop_discord_overlay/instance.py` | Single-overlay lock |
 | `vesktop_discord_overlay/state.py` | Remembered preferences (`~/.config/vesktop-discord-overlay/state.json`) |
 | `vesktop_discord_overlay/config.py` | **All settings**, grouped and commented |

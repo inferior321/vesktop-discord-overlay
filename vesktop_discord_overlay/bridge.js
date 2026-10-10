@@ -703,6 +703,8 @@
                 deaf: C.MediaEngineStore.isSelfDeaf(),
                 channel: vc ? channelName(vc) : null,
                 status: StatusSetting?.getSetting() ?? null, // online | idle | dnd | invisible
+                me: (u => ({ name: userName(u), avatar: absolute(u.getAvatarURL(undefined, ICON_SIZE, false)) }))(
+                    C.UserStore.getCurrentUser()),
             };
         },
 

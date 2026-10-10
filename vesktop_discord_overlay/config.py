@@ -10,7 +10,8 @@ from Xlib import X
 
 # ---- Vesktop connection --------------------------------------------------------------------------------
 DEBUG_PORT = 9222  # Vesktop's DevTools port (Vesktop must be started with --remote-debugging-port=<this>)
-VESKTOP_LAUNCH = ["flatpak", "run", "dev.vencord.Vesktop"]
+VESKTOP_APP = "dev.vencord.Vesktop"  # the Flatpak the overlay works with
+VESKTOP_LAUNCH = ["flatpak", "run", VESKTOP_APP]
 FOLLOW_CHECK_SECONDS = 3  # --follow-vesktop: how often to check whether Vesktop is still running
 FOLLOW_STARTUP_GRACE = 90  # --follow-vesktop: seconds to wait for Vesktop to appear before giving up
 
@@ -34,6 +35,7 @@ SIDEBAR_W = 330
 CARD_AVATAR = 40  # friend / server pictures in the list
 MESSAGE_AVATAR = 36
 HEADER_AVATAR = 32
+USER_AVATAR = 32  # you, in the user panel at the bottom of the sidebar
 HELP_HOVER_SIZE = 30  # hover target around the "?" (bigger than the icon, so it's easy to stay on)
 ERROR_MAX_CHARS = 60  # an error message gets this much room in the bottom bar before the voice label
 PICKER_MIN_H, PICKER_MAX_H = 220, 380  # emoji / GIF picker height

@@ -134,6 +134,7 @@ menu menuitem.danger:hover label {{ color: white; }}
 .viewer-button:hover {{ background: {SELECTED}; }}
 .info {{ color: #949ba4; }}
 .empty-hint {{ color: #6d6f78; font-size: {pt(11)}; }}
+.empty-tip {{ color: #4e5058; font-size: {pt(8.5)}; }}
 
 .bar {{ background: {SIDEBAR}; padding: 6px 10px; }}
 button.voice, button.tool {{ background: {INPUT}; background-image: none; color: #dbdee1; border: none; border-radius: 6px;
@@ -152,15 +153,19 @@ row.suggest-row:selected {{ background: {SELECTED}; }}
 .suggest-char {{ font-size: {pt(15)}; }}
 .suggest-name {{ color: #dbdee1; }}
 button.voice.on {{ background: #f23f43; color: white; }}
-button.status {{ background: {INPUT}; background-image: none; border: none; border-radius: 6px; padding: 2px 9px;
-                 box-shadow: none; text-shadow: none; min-height: 0; }}
-button.status:hover {{ background: {SELECTED}; }}
-.status-dot {{ font-size: {pt(11)}; }}
+.user-bar {{ background: {SIDEBAR}; padding: 6px 8px; border-top: 1px solid {BORDER}; }}
+button.user-panel {{ background: transparent; background-image: none; border: none; border-radius: 6px;
+                     padding: 2px 6px; box-shadow: none; text-shadow: none; }}
+button.user-panel:hover {{ background: {HOVER}; }}
+.user-name {{ color: #f2f3f5; font-weight: 600; font-size: {pt(9)}; }}
+.user-status {{ color: #949ba4; font-size: {pt(8)}; }}
 .keycap {{ background: rgba(255, 255, 255, 0.07); color: #b5bac1; border-radius: 4px; padding: 0 5px;
            font-size: {pt(8)}; font-family: monospace; }}
 .keycap {{ border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: none; }}  /* GTK themes add a bright outline */
 button.voice.on .keycap {{ color: white; }}
 .voice-label {{ color: #949ba4; font-size: {pt(8)}; }}
+.voice-label.connected {{ color: #23a55a; font-weight: 700; }}
+.voice-channel {{ color: #b5bac1; font-size: {pt(8)}; }}
 .error-text {{ color: #f23f43; font-size: {pt(8)}; }}
 .error-text.note {{ color: #949ba4; }}
 .help-icon {{ color: #949ba4; background: {INPUT}; border-radius: 9px; font-weight: 700; font-size: {pt(9)};

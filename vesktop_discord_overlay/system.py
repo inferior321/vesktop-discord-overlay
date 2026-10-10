@@ -6,7 +6,7 @@ import subprocess
 import time
 import urllib.request
 
-from .config import DEBUG_PORT, VESKTOP_LAUNCH
+from .config import DEBUG_PORT, VESKTOP_APP, VESKTOP_LAUNCH
 
 
 def vesktop_running():
@@ -20,6 +20,35 @@ def vesktop_running():
         except OSError:
             continue
     return False
+
+
+def other_vesktop_running():
+    """Is a Vesktop running that isn't the Flatpak (a .deb, AppImage or AUR install)? Best effort."""
+    own = str(os.getpid())
+    for pid in os.listdir("/proc"):
+        if not pid.isdigit() or pid == own:
+            continue
+        try:
+            with open(f"/proc/{pid}/comm") as f:
+                comm = f.read().strip()
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                args = f.read().decode(errors="replace").lower().split("\0")
+        except OSError:
+            continue
+        flatpak = comm in ("vesktop.bin", "bwrap") or any(a.startswith("/app/") or VESKTOP_APP.lower() in a
+                                                          for a in args)  # (/app/ is inside a Flatpak)
+        if flatpak or any("vesktop-discord-overlay" in a or "vesktop_discord_overlay" in a for a in args):
+            continue  # the Flatpak, or this overlay
+        if comm == "vesktop" or any(a.endswith("/vesktop") or "/vesktop/" in a for a in args):
+            return True
+    return False
+
+
+def flatpak_vesktop_installed():
+    try:
+        return subprocess.run(["flatpak", "info", VESKTOP_APP], capture_output=True).returncode == 0
+    except OSError:
+        return False
 
 
 def vesktop_main_pid():

@@ -39,7 +39,7 @@ Panel keys:
                      a message: Reply, Add reaction, Edit / Delete (yours), Copy, Open in Vesktop
     click a reaction add yours, or remove it if it's already yours
     click a ↳ quote  go to the message it replies to
-    status dot       (bottom left) pick Online / Idle / Do Not Disturb / Invisible
+    your name        (bottom left) click it to pick Online / Idle / Do Not Disturb / Invisible
     Ctrl+E / Ctrl+G  (in the reply box, or the 😀 / GIF buttons) emoji / GIF picker
     ✎ in the list marks chats with an unsent draft.
 """
@@ -53,5 +53,7 @@ if __name__ == "__main__":
     elif {"--help", "-h"} & set(sys.argv[1:]):
         print(__doc__)
     else:
+        from vesktop_discord_overlay.preflight import check_or_exit
+        check_or_exit()  # Wayland, missing packages: say so plainly instead of failing
         from vesktop_discord_overlay.overlay import main
         main()

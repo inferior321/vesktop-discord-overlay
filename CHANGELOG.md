@@ -20,3 +20,5 @@ First release.
 - App-menu launcher that starts Vesktop with the port the overlay needs, and quits the overlay with Vesktop.
 - `install.sh` checks what's needed and, on Debian / Ubuntu / Mint, installs it after asking; it also offers
   to install Vesktop from Flathub.
+- Plain-language messages (desktop notification and terminal) when it can't work: a Wayland session, missing
+  packages, Vesktop not running or not the Flatpak, or the hotkey taken by another program.

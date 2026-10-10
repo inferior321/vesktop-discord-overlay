@@ -14,7 +14,7 @@ from .config import (CHAT_POLL_MS, CLICK_AWAY_CHECK_MS, CLICK_AWAY_GRACE_SECONDS
                      ERROR_SHOW_MS, FOCUS_DELAY_MS, FOLLOW_CHECK_SECONDS, FOLLOW_STARTUP_GRACE, HEADER_AVATAR,
                      HELP_HOVER_CHECK_MS, HELP_HOVER_SIZE, HOTKEY_KEYSYM, HOTKEY_LABEL, HOTKEY_MODIFIERS,
                      LIST_POLL_MS, LIVE_LIST_REFRESH_MS, NOTE_SHOW_MS, OPACITY_MIN, OPACITY_STEP, PANEL_MAX_H,
-                     PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, VESKTOP_FOCUS_DELAY_MS,
+                     PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, USER_AVATAR, VESKTOP_FOCUS_DELAY_MS,
                      VOICE_SETTLE_SECONDS)
 from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, WebKit2
 from .history import HistoryMixin
@@ -24,7 +24,8 @@ from .messages import MessagesMixin, message_box
 from .pickers import Picker, Suggestions
 from .shortcuts import help_popover
 from .sidebar import SidebarMixin
-from .system import activate_vesktop_window, run_quiet, vesktop_running
+from .preflight import tell
+from .system import activate_vesktop_window, other_vesktop_running, run_quiet, vesktop_running
 from .theme import CSS, STATUS_COLORS
 from .viewer import Viewer
 from .widgets import add_class, fill_menu, label, pointer_inside, set_class
@@ -119,7 +120,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.hotkey.start()
         self.hotkey.ready.wait(3)
         if self.hotkey.failure:
-            raise SystemExit(self.hotkey.failure)
+            tell(f"{self.hotkey.failure} ({HOTKEY_LABEL}; pick another in config.py)")
+            raise SystemExit(1)
 
     # ---------- UI construction ----------
 
@@ -208,6 +210,26 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.list_scroll.add(self.listbox)
         side.pack_start(self.list_scroll, True, True, 4)
 
+        # You, at the bottom of the sidebar like Discord's user panel: click to change your status.
+        user_bar = add_class(Gtk.Box(), "user-bar")
+        self.user_panel = add_class(Gtk.Button(), "user-panel")
+        self.user_panel.set_can_focus(False)
+        self.user_panel.set_tooltip_text("Click to change your status")
+        panel_content = Gtk.Box(spacing=10)
+        self.user_avatar = Avatar(self.images, USER_AVATAR)
+        panel_content.pack_start(self.user_avatar, False, False, 0)
+        names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        self.user_name = label("", "user-name", ellipsize=True)
+        self.user_status = label("", "user-status")
+        names.pack_start(self.user_name, False, False, 0)
+        names.pack_start(self.user_status, False, False, 0)
+        panel_content.pack_start(names, True, True, 0)
+        self.user_panel.add(panel_content)
+        self.user_panel.connect("clicked", lambda *_: self._status_menu())
+        user_bar.pack_start(self.user_panel, True, True, 0)
+        side.pack_end(user_bar, False, False, 0)
+        self.me = {"name": "", "avatar": None}
+
         # Main pane: header, messages, reply box, voice bar.
         main = add_class(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "main")
         outer.pack_start(main, True, True, 0)
@@ -256,9 +278,13 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         main.pack_start(layer, True, True, 0)
         self.chat_layer = layer
         # With no chat open the chat layer is hidden (a closed chat stays in it, ready to reopen) and this shows.
-        self.empty_hint = label("→  open a chat", "empty-hint", xalign=0.5)
-        self.empty_hint.set_valign(Gtk.Align.CENTER)
+        self.empty_hint = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, valign=Gtk.Align.CENTER)
+        self.empty_hint.pack_start(label("→  open a chat", "empty-hint", xalign=0.5), False, False, 0)
+        self.empty_hint.pack_start(label("Ctrl+Tab switches Friends / Servers  ·  F1 shows every shortcut",
+                                         "empty-tip", xalign=0.5), False, False, 0)
+        self.empty_hint.show_all()
         self.empty_hint.set_no_show_all(True)
+        self.empty_hint.hide()
         main.pack_start(self.empty_hint, True, True, 0)
 
         # Above the reply box: the message you're replying to or editing, a pasted image waiting to be sent,
@@ -312,12 +338,6 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         main.pack_start(self.reply_row, False, False, 0)
 
         bar = add_class(Gtk.Box(spacing=6), "bar")
-        self.status_btn = add_class(Gtk.Button(), "status")  # your status; click to change it
-        self.status_btn.set_can_focus(False)
-        self.status_dot = label("●", "status-dot", xalign=0.5)
-        self.status_btn.add(self.status_dot)
-        self.status_btn.connect("clicked", lambda *_: self._status_menu())
-        bar.pack_start(self.status_btn, False, False, 0)
         self.mute_btn, self.mute_text = self._keyed_button("Mute", "Ctrl+M", "voice",
                                                            lambda: self._voice("toggleMute"))
         self.deaf_btn, self.deaf_text = self._keyed_button("Deafen", "Ctrl+D", "voice",
@@ -348,8 +368,14 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         # The voice channel you're in, with Disconnect beside it; together they get the rest of the bar.
         voice_box = Gtk.Box(spacing=8)
         voice_box.set_margin_start(6)
+        # Like Discord: a green "Voice connected" with the channel under it, or a grey "Not in voice".
+        voice_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         self.voice_label = label("", "voice-label", ellipsize=True)
-        voice_box.pack_start(self.voice_label, False, True, 0)
+        self.voice_channel = label("", "voice-channel", ellipsize=True)
+        self.voice_channel.set_no_show_all(True)
+        voice_text.pack_start(self.voice_label, False, False, 0)
+        voice_text.pack_start(self.voice_channel, False, False, 0)
+        voice_box.pack_start(voice_text, False, True, 0)
         self.disconnect_btn, _ = self._keyed_button("Disconnect", "Ctrl+Shift+D", "voice",
                                                     self._disconnect_voice)
         self.disconnect_btn.show_all()
@@ -358,6 +384,9 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         voice_box.pack_start(self.disconnect_btn, False, False, 0)
         bar.pack_start(voice_box, True, True, 0)
         main.pack_start(bar, False, False, 0)
+        self.bottom_rows = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)  # user panel and bottom bar line up
+        self.bottom_rows.add_widget(user_bar)
+        self.bottom_rows.add_widget(bar)
         self.error_timer = None
 
         outer.show_all()
@@ -478,6 +507,11 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
 
     def show(self):
         if not vesktop_running():
+            # Say why nothing opens, instead of silently doing nothing.
+            if other_vesktop_running():
+                tell("Vesktop is running, but not the Flatpak version, which is the one the overlay works with.")
+            else:
+                tell("Vesktop isn't running. Start it from the Vesktop Discord Overlay menu entry.")
             return
         self.prev_window = run_quiet(["xdotool", "getactivewindow"]) or None
         self._place_window()
@@ -733,7 +767,13 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         set_class(self.mute_btn, "on", v["mute"])
         self.deaf_text.set_text("Undeafen" if v["deaf"] else "Deafen")
         set_class(self.deaf_btn, "on", v["deaf"])
-        self.voice_label.set_text(f"🔊 {v['channel']}" if v["channel"] else "Not in voice")
+        self.voice_label.set_text("Voice connected" if v["channel"] else "Not in voice")
+        set_class(self.voice_label, "connected", bool(v["channel"]))
+        self.voice_channel.set_text(f"🔊 {v['channel']}" if v["channel"] else "")
+        self.voice_channel.set_visible(bool(v["channel"]))
+        if v.get("me") and v["me"] != self.me:
+            self.me = v["me"]
+            self._show_me()
         self.disconnect_btn.set_visible(bool(v["channel"]))
         # Just after you pick a status, Discord's answer may still be the old one; trust the button a moment.
         settled = time.monotonic() > self.status_set_at + VOICE_SETTLE_SECONDS
@@ -744,9 +784,15 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
 
     def _show_status(self, status):
         self.status = status
-        self.status_dot.set_markup(f'<span foreground="{STATUS_COLORS.get(status, STATUS_COLORS["offline"])}">'
-                                   f'{"○" if status == "invisible" else "●"}</span>')
-        self.status_btn.set_tooltip_text(f"Status: {STATUS_NAMES.get(status, status)}")
+        self.user_status.set_text(STATUS_NAMES.get(status, status))
+        self._show_me()
+
+    def _show_me(self):
+        """Your avatar (with your status as its dot) and name in the user panel."""
+        name = self.me.get("name") or ""
+        self.user_name.set_text(name)
+        dot = "offline" if self.status == "invisible" else self.status  # invisible shows as grey, like Discord
+        self.user_avatar.set(self.me.get("avatar"), name[:1].upper(), dot)
 
     def _status_menu(self):
         items = []
@@ -756,7 +802,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             tick = "   ✓" if status == self.status else ""
             text = f'<span foreground="{color}">{mark}</span>  {name}{tick}'
             items.append((text, lambda status=status: self._set_status(status)))
-        self._popup_menu(items, None, widget=self.status_btn, markup=True)
+        self._popup_menu(items, None, widget=self.user_panel, markup=True)
 
     def _set_status(self, status):
         self._show_status(status)  # at once; the next voice refresh confirms it

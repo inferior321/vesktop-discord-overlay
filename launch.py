@@ -15,10 +15,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+from vesktop_discord_overlay.preflight import check_or_exit, tell  # noqa: E402
+
+check_or_exit()  # before anything that needs the packages it checks for
+
 from vesktop_discord_overlay import instance  # noqa: E402
 from vesktop_discord_overlay.config import CACHE_DIR  # noqa: E402
 from vesktop_discord_overlay.system import (  # noqa: E402
-    activate_vesktop_window, debug_port_open, quit_vesktop, start_vesktop, vesktop_running)
+    activate_vesktop_window, debug_port_open, flatpak_vesktop_installed, other_vesktop_running, quit_vesktop,
+    start_vesktop, vesktop_running)
 
 TITLE = "Vesktop Discord Overlay"
 
@@ -32,9 +37,6 @@ def ask_restart():
     return result.returncode == 0
 
 
-def notify(text):
-    subprocess.run(["notify-send", "--app-name", TITLE, "--icon", "vesktop-discord-overlay", TITLE, text])
-
 
 def start_overlay():
     if instance.overlay_running():
@@ -46,13 +48,21 @@ def start_overlay():
 
 
 def main():
+    if not flatpak_vesktop_installed():
+        if other_vesktop_running():
+            tell("Your Vesktop isn't the Flatpak version, which is the one the overlay works with. Install the "
+                 "Flatpak (run ./install.sh, or: flatpak install flathub dev.vencord.Vesktop).")
+        else:
+            tell("Vesktop's Flatpak isn't installed. Run ./install.sh, or: "
+                 "flatpak install flathub dev.vencord.Vesktop")
+        return
     if not vesktop_running():
         start_vesktop()
     elif debug_port_open():
         activate_vesktop_window()
     elif ask_restart():
         if not quit_vesktop():
-            notify("Couldn't close Vesktop. Quit it from its tray icon, then click again.")
+            tell("Couldn't close Vesktop. Quit it from its tray icon, then click again.")
             return
         start_vesktop()
     else:
