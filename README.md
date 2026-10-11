@@ -1,5 +1,7 @@
 # vesktop-discord-overlay
 
+[![checks](https://github.com/inferior321/vesktop-discord-overlay/actions/workflows/checks.yml/badge.svg)](https://github.com/inferior321/vesktop-discord-overlay/actions/workflows/checks.yml)
+
 A Discord overlay for Linux. Press **Ctrl+Shift+`** over any window, a game included, to see your friends and
 servers, read and reply, react, send emoji and GIFs, and mute or deafen, without switching to Discord.
 
@@ -223,11 +225,12 @@ The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered in
 ### Testing changes
 
 Everything in `dev/` runs against a fake Vesktop with made-up friends, servers and messages, so no real
-account is read or touched. It needs `Xephyr` (`sudo apt install xserver-xephyr`) for the private test
-display.
+account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible) or `Xephyr`
+(`sudo apt install xserver-xephyr`, a window) for the private test display.
 
-- `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, chat history) and says
-  whether they passed.
+- `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history)
+  and says whether they passed. GitHub runs them on every push too (the badge at the top).
+- `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
 - `dev/display.sh` opens a test display window with the overlay running on fake data, to try things by hand
   (press Ctrl+Shift+` inside it). `python3 dev/screenshot.py out.png` saves a picture of it.
 

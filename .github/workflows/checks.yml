@@ -1,0 +1,27 @@
+# Runs dev/check.sh (the overlay against a fake Vesktop with made-up chats; no Discord account involved) on
+# every push and pull request.
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install what the overlay and its checks need
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            python3-gi python3-gi-cairo python3-xlib python3-websockets python3-pil \
+            gir1.2-gtk-3.0 gir1.2-gstreamer-1.0 gstreamer1.0-gtk3 gstreamer1.0-libav \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            xdotool xvfb metacity fonts-noto-color-emoji
+
+      # The system's Python, which has the GTK bindings (a setup-python one wouldn't).
+      - name: Run the checks
+        run: dev/check.sh
