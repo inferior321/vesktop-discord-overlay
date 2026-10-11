@@ -20,7 +20,8 @@ client code; it never sees or stores your login token.
 - **Right-click a message** to reply, react, edit or delete your own, copy it or its link, or open it in
   Vesktop. Click a reaction to add or remove yours; click a reply's quote to jump to the original.
 - **Voice and status**: mute, deafen and leave the voice channel from the bottom bar; click your name at the
-  bottom left to set Online / Idle / Do Not Disturb / Invisible.
+  bottom left to set Online / Idle / Do Not Disturb / Invisible. Both stay in sync with changes made in
+  Discord itself, instantly.
 - **Keyboard-first**: the panel opens ready to type in the chat you were in, so replying is Ctrl+Shift+`,
   type, Enter, Esc. Arrow keys and Tab get you everywhere else; Ctrl+← / Ctrl+→ step through the last 25
   chats you opened. Press F1 for the full list.

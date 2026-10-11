@@ -652,7 +652,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         return True
 
     def _on_bridge_event(self, payload):
-        """Things Vesktop pushes as they happen (see bridge.js): chats that changed, and who's typing where."""
+        """Things Vesktop pushes as they happen (see bridge.js): chats that changed, the lists' data changing,
+        who's typing where, and voice and status changes."""
         try:
             event = json.loads(payload)
         except ValueError:
@@ -665,13 +666,21 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             for (kind, channel_id), row in self.row_cache.items():
                 if kind == "friend":
                     row.set_typing(channel_id in self.typing_now)
+        elif event.get("type") == "voice":
+            self._voice_update(event)
         elif event.get("type") == "chats" and self.win.get_visible():
             if self.channel_id in event["channels"]:
                 self._load_messages()
-            if not self.list_refresh_pending:  # unread dots and badges, without a refresh per message
-                self.list_refresh_pending = True
-                GLib.timeout_add(LIVE_LIST_REFRESH_MS, self._live_list_refresh)
+            self._refresh_lists_soon()  # unread dots and order
+        elif event.get("type") == "lists" and self.win.get_visible():
+            self._refresh_lists_soon()  # read elsewhere, online status, new DMs, servers joined / muted
         return False
+
+    def _refresh_lists_soon(self):
+        """Re-read the sidebar shortly, at most once per LIVE_LIST_REFRESH_MS however many changes arrive."""
+        if not self.list_refresh_pending:
+            self.list_refresh_pending = True
+            GLib.timeout_add(LIVE_LIST_REFRESH_MS, self._live_list_refresh)
 
     def _live_list_refresh(self):
         self.list_refresh_pending = False
@@ -798,17 +807,20 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
 
         def got(v):
             # An answer to a question asked before your last press is stale; don't let it undo the button.
-            if asked_at < self.voice_pressed_at:
-                return
-            # Just after a press, Discord may not have applied it yet: only accept answers that agree with
-            # the button until the settle time; after that the real state wins (e.g. if the toggle failed).
-            settling = time.monotonic() < self.voice_pressed_at + VOICE_SETTLE_SECONDS
-            if settling and (v["mute"], v["deaf"]) != (self.voice_state["mute"], self.voice_state["deaf"]):
-                return
-            self._on_voice(v)
+            if asked_at >= self.voice_pressed_at:
+                self._voice_update(v)
 
         self._call("voice", on_ok=got, on_err=lambda _exc: None, skip_if_busy=skip_if_busy)
         return False
+
+    def _voice_update(self, v):
+        """Voice state from Vesktop: pushed the moment it changes anywhere, or read by the backup check."""
+        # Just after a press, Discord may not have applied it yet: only accept states that agree with the
+        # button until the settle time; after that the real state wins (e.g. if the toggle failed).
+        settling = time.monotonic() < self.voice_pressed_at + VOICE_SETTLE_SECONDS
+        if settling and (v["mute"], v["deaf"]) != (self.voice_state["mute"], self.voice_state["deaf"]):
+            return
+        self._on_voice(v)
 
     def _on_voice(self, v):
         self.voice_state = v

@@ -65,10 +65,46 @@ def wait(o):
     pass
 
 
+def friend_online(o):
+    o.show()
+    mark["overviews"] = sum(1 for name, _ in fb.CALLS if name == "overview")
+    fb.FRIENDS[4]["status"] = "offline"  # e.g. Friend 5 went offline
+    for _ in range(5):
+        fb.push_lists()  # a burst of changes
+
+
+def lists_refreshed(o):
+    reads = sum(1 for name, _ in fb.CALLS if name == "overview") - mark["overviews"]
+    row = o.row_cache[("friend", "F5")]
+    print(f"a burst of 5 list changes: sidebar re-read {reads} time(s); Friend 5 shows {row.data['status']}",
+          flush=True)
+    assert reads == 1 and row.data["status"] == "offline", "one prompt refresh for the whole burst"
+
+
+def muted_elsewhere(o):
+    fb.VOICE["mute"] = True  # muted with Discord's own button
+    fb.push_voice()
+
+
+def panel_caught_up(o):
+    on = o.mute_btn.get_style_context().has_class("on")
+    state = "red" if on else "NOT updated"
+    print(f"muted in Discord itself: the panel's Mute button is {state} right away", flush=True)
+    assert on, "a mute change made elsewhere shows at once"
+    o._voice("toggleMute")  # Ctrl+M straight after: unmutes, starting from the right state
+
+
+def unmuted(o):
+    on = o.mute_btn.get_style_context().has_class("on")
+    print(f"then Ctrl+M: Discord muted={fb.VOICE['mute']}, button {'red' if on else 'normal'}", flush=True)
+    assert not fb.VOICE["mute"] and not on, "button and Discord agree"
+
+
 def hidden(o):
     assert len(reads) == mark["reads"], "nothing is read while the panel is hidden"
     print("changes elsewhere and while hidden: no reads", flush=True)
 
 
 fb.run_steps(main, [arrive, arrive_mid_read, wait, wait, wait, both_shown,
-                    other_chat, wait, not_reread, wait, hidden], interval_ms=300)
+                    other_chat, wait, not_reread, wait, hidden, friend_online, wait, wait, wait, wait,
+                    lists_refreshed, muted_elsewhere, wait, panel_caught_up, wait, unmuted], interval_ms=300)

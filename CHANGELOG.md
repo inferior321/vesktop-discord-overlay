@@ -7,7 +7,8 @@ First release.
 - Ctrl+Shift+` panel over any window: Friends and Servers tabs with avatars, online status, unread dots,
   ping counts and last-message previews; servers open into their channel lists.
 - Chats with Discord's formatting, server emoji, images, GIFs and inline YouTube. Scrolling up loads older
-  messages, and new messages, edits, deletions and reactions appear the moment they happen.
+  messages, and new messages, edits, deletions and reactions appear the moment they happen; so do unread
+  marks, online status, new DMs and servers in the lists.
 - Replying with emoji and GIF pickers (Ctrl+E / Ctrl+G), `:` emoji suggestions and pasted images; your
   friends see you typing, and you see them typing.
 - Right-click a message to reply, react, edit or delete your own, copy it or its link, or open it in Vesktop.
@@ -18,7 +19,7 @@ First release.
   Ctrl+Shift+← removes one, Ctrl+Shift+↓ clears it.
 - Full-panel image / GIF viewer with Copy and Save.
 - Mute, deafen and leave voice; set your status (Online, Idle, Do Not Disturb, Invisible) from your name at
-  the bottom left.
+  the bottom left. Changes made in Discord itself show instantly.
 - Marks chats read once you've seen their newest messages, like Discord.
 - Makes no Discord requests on its own: list previews come only from messages Vesktop already has.
 - Adjustable opacity (Ctrl+↑ / Ctrl+↓); every other setting in `vesktop_discord_overlay/config.py`.

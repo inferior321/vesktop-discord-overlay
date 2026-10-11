@@ -76,7 +76,19 @@ def install(main, respond_extra=None):
             return list(HEALTH)
         if method == "setStatus":
             VOICE["status"] = args[0]
+            push_voice()
             return True
+        if method in ("toggleMute", "toggleDeaf"):
+            # Like Discord: deafening mutes; unmuting while deafened undeafens.
+            if method == "toggleDeaf":
+                VOICE["deaf"] = not VOICE["deaf"]
+                VOICE["mute"] = VOICE["mute"] or VOICE["deaf"]
+            elif VOICE["deaf"]:
+                VOICE["deaf"] = VOICE["mute"] = False
+            else:
+                VOICE["mute"] = not VOICE["mute"]
+            push_voice()
+            return dict(VOICE)
         if method == "disconnectVoice":
             VOICE["channel"] = None
             return True
@@ -96,7 +108,8 @@ def install(main, respond_extra=None):
         if method == "channels":
             return [dict(c) for c in CHANNELS]
         if method == "emojiCatalog":
-            return {"categories": [{"id": "people", "emojis": [{"name": "skull", "char": "💀", "names": ["skull"]}]}]}
+            skull = {"name": "skull", "char": "💀", "names": ["skull"]}
+            return {"categories": [{"id": "people", "emojis": [skull]}]}
         if method == "emojiForChannel":
             return {"frecent": [], "custom": []}
         if method == "gifs":
@@ -161,6 +174,18 @@ def change_message(method, args):
         from vesktop_discord_overlay.gtk import GLib
         GLib.idle_add(lambda: push_chats(overlay.channel_id) or False)
     return True
+
+
+def push_voice():
+    """Act like Vesktop reporting that mute / deafen / voice channel / status changed."""
+    if overlay is not None:
+        from vesktop_discord_overlay.gtk import GLib
+        GLib.idle_add(lambda: overlay.bridge.on_event(json.dumps({"type": "voice", **VOICE})) or False)
+
+
+def push_lists():
+    """Act like Vesktop reporting that the lists' data changed (something read elsewhere, a friend online, ...)."""
+    overlay.bridge.on_event(json.dumps({"type": "lists"}))
 
 
 def push_chats(*channel_ids):

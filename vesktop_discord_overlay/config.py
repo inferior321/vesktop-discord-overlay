@@ -26,7 +26,7 @@ TEXT_SCALE = 1.1  # all text in the panel, relative to your desktop's font size 
 # ---- Opacity (Ctrl+Up / Ctrl+Down) ---------------------------------------------------------------------
 OPACITY_STEP = 0.05
 OPACITY_MIN = 0.30  # never fainter than this, so the panel can't effectively disappear
-NOTE_SHOW_MS = 1500  # how long "Opacity 75%" stays in the bottom bar
+NOTE_SHOW_MS = 2500  # how long short notes ("Opacity 75%", "Saved to Downloads/…") stay in the bottom bar
 
 # ---- Panel layout ----------------------------------------------------------------------------------------
 PANEL_MAX_W, PANEL_MAX_H = 1080, 720  # the panel's size on large screens...
@@ -53,9 +53,10 @@ FLASH_MS = 2000  # how long a message you jumped to stays highlighted
 DISCARD_BATCH = 40  # message rows destroyed per step when a chat is cleared (so the panel never freezes)
 
 # ---- Timing ----------------------------------------------------------------------------------------------
-LIST_POLL_MS = 4000  # refresh the sidebar (online status etc.) and Mute / Deafen this often while visible
+LIST_POLL_MS = 15000  # re-read the sidebar and Mute / Deafen this often as a safety net (changes show instantly)
 CHAT_POLL_MS = 10000  # re-read the open chat this often as a safety net; changes normally show instantly
-LIVE_LIST_REFRESH_MS = 1000  # when messages arrive anywhere, refresh the sidebar's unread marks at most this often
+LIVE_LIST_REFRESH_MS = 1000  # when anything in the lists changes (messages, reads, online status), refresh the
+                             # sidebar at most this often
 FOCUS_DELAY_MS = 50  # after the panel appears, before taking keyboard focus
 CLICK_AWAY_GRACE_SECONDS = 0.6  # ignore focus changes this soon after opening (the panel taking focus)
 CLICK_AWAY_CHECK_MS = 150  # after losing focus, look again before deciding you clicked away

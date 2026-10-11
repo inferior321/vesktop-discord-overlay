@@ -31,6 +31,7 @@
     const PREVIEW_MAX_CHARS = 140;
     const FRECENT_EMOJI = 32; // "Frequently used" emoji shown in the picker
     const CHANGE_BATCH_MS = 50; // changed chats are reported to the overlay at most this often
+    const LISTS_BATCH_MS = 250; // a burst of list changes (e.g. many friends' statuses) is reported once
 
     // Last-message previews per channel, from messages Vesktop already has (opened chats, and messages that
     // arrive while it runs). Never fetched on purpose: the overlay makes no requests you didn't ask for.
@@ -402,6 +403,54 @@
         };
     } catch { liveUpdatesOk = false; }
 
+    // The sidebar's data changed (something read elsewhere, someone came online, a new DM, a server joined or
+    // muted, ...): tell the overlay, so it re-reads the lists now instead of at its next safety-net check. All
+    // of this is Discord data Vesktop already has in memory; nothing is asked of Discord's servers.
+    let listsTimer = null;
+    function listsChanged() {
+        listsTimer ??= setTimeout(() => {
+            listsTimer = null;
+            window.__vesktopOverlayEvent?.(JSON.stringify({ type: "lists" }));
+        }, LISTS_BATCH_MS);
+    }
+    const listStores = [C.ReadStateStore, C.PresenceStore, C.PrivateChannelSortStore, C.GuildStore,
+        C.GuildReadStateStore, C.UserGuildSettingsStore].filter(Boolean);
+    window.__vesktopOverlayListsUnsub?.();
+    try {
+        for (const store of listStores) store.addChangeListener(listsChanged);
+        window.__vesktopOverlayListsUnsub = () => listStores.forEach(store => store.removeChangeListener(listsChanged));
+    } catch { liveUpdatesOk = false; }
+
+    // Mute / deafen, the voice channel you're in, your status, and you (for the user panel).
+    function voiceState() {
+        const vc = C.ChannelStore.getChannel(C.SelectedChannelStore.getVoiceChannelId());
+        return {
+            mute: C.MediaEngineStore.isSelfMute(),
+            deaf: C.MediaEngineStore.isSelfDeaf(),
+            channel: vc ? channelName(vc) : null,
+            status: StatusSetting?.getSetting() ?? null, // online | idle | dnd | invisible
+            me: (u => ({ name: userName(u), avatar: absolute(u.getAvatarURL(undefined, ICON_SIZE, false)) }))(
+                C.UserStore.getCurrentUser()),
+        };
+    }
+
+    // Push it the moment it changes, wherever it was changed (the overlay, Discord's own buttons, a keybind),
+    // so the panel's buttons are never out of date.
+    let lastVoice = "";
+    function pushVoice() {
+        let json;
+        try { json = JSON.stringify({ type: "voice", ...voiceState() }); } catch { return; }
+        if (json === lastVoice) return;
+        lastVoice = json;
+        window.__vesktopOverlayEvent?.(json);
+    }
+    const voiceStores = [C.MediaEngineStore, C.SelectedChannelStore, C.UserSettingsProtoStore].filter(Boolean);
+    window.__vesktopOverlayVoiceUnsub?.();
+    try {
+        for (const store of voiceStores) store.addChangeListener(pushVoice);
+        window.__vesktopOverlayVoiceUnsub = () => voiceStores.forEach(store => store.removeChangeListener(pushVoice));
+    } catch { liveUpdatesOk = false; }
+
     function channelCard(ch, withPreview) {
         return {
             id: ch.id,
@@ -701,17 +750,7 @@
             return !!box;
         },
 
-        voice() {
-            const vc = C.ChannelStore.getChannel(C.SelectedChannelStore.getVoiceChannelId());
-            return {
-                mute: C.MediaEngineStore.isSelfMute(),
-                deaf: C.MediaEngineStore.isSelfDeaf(),
-                channel: vc ? channelName(vc) : null,
-                status: StatusSetting?.getSetting() ?? null, // online | idle | dnd | invisible
-                me: (u => ({ name: userName(u), avatar: absolute(u.getAvatarURL(undefined, ICON_SIZE, false)) }))(
-                    C.UserStore.getCurrentUser()),
-            };
-        },
+        voice() { return voiceState(); },
 
         // Leave the voice channel you're in.
         disconnectVoice() { VoiceChannels.disconnect(); return true; },
