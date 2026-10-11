@@ -17,9 +17,13 @@ First release.
 - Full-panel image / GIF viewer with Copy and Save.
 - Mute, deafen and leave voice; set your status (Online, Idle, Do Not Disturb, Invisible).
 - Marks chats read once you've seen their newest messages, like Discord.
+- Makes no Discord requests on its own: list previews come only from messages Vesktop already has.
 - Adjustable opacity (Ctrl+↑ / Ctrl+↓); every other setting in `vesktop_discord_overlay/config.py`.
 - App-menu launcher that starts Vesktop with the port the overlay needs, and quits the overlay with Vesktop.
 - `install.sh` checks what's needed and, on Debian / Ubuntu / Mint, installs it after asking; it also offers
   to install Vesktop from Flathub.
+- After a Discord update renames something it relies on, the overlay says which features are affected
+  (the rest keep working) instead of showing cryptic errors.
 - Plain-language messages (desktop notification and terminal) when it can't work: a Wayland session, missing
-  packages, Vesktop not running or not the Flatpak, or the hotkey taken by another program.
+  packages, Vesktop not running or not the Flatpak, the hotkey taken by another program, or a keyboard layout
+  without a ` key (on layouts where ` is an accent key, that key works).

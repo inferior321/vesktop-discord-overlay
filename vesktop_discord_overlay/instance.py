@@ -4,7 +4,10 @@ import fcntl
 import os
 from pathlib import Path
 
-LOCK_PATH = Path(os.environ.get("XDG_RUNTIME_DIR") or "/tmp") / "vesktop-discord-overlay.lock"
+# XDG_RUNTIME_DIR is already private to each user; /tmp (the rare fallback) is shared, so the name says whose.
+_runtime = os.environ.get("XDG_RUNTIME_DIR")
+LOCK_PATH = (Path(_runtime) / "vesktop-discord-overlay.lock" if _runtime
+             else Path("/tmp") / f"vesktop-discord-overlay-{os.getuid()}.lock")
 
 
 def acquire():

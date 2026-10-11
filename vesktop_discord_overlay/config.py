@@ -87,4 +87,5 @@ CACHE_MAX_AGE_DAYS = 14  # downloaded images / GIFs unused this long are deleted
 MEDIA_MEMORY_LARGE = 150  # large decoded images / GIFs kept in memory (older ones are re-read from disk)
 MEDIA_SMALL_PX = 128  # images this size or smaller (avatars, icons, emoji) always stay in memory
 CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "vesktop-discord-overlay"
+LOG_MAX_KB = 512  # overlay.log (when started from the app menu): over this, it's trimmed to its newest half
 STATE_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "vesktop-discord-overlay" / "state.json"

@@ -22,7 +22,14 @@ class HotkeyListener(threading.Thread):
     def run(self):
         disp = xdisplay.Display()
         root = disp.screen().root
-        keycode = disp.keysym_to_keycode(XK.string_to_keysym(self.keysym))
+        # The key, or its "dead key" form on layouts where it only starts an accent (e.g. ` on German keyboards).
+        keycode = next((code for code in (disp.keysym_to_keycode(XK.string_to_keysym(name))
+                                          for name in (self.keysym, "dead_" + self.keysym)) if code), 0)
+        if not keycode:
+            # Never grab key code 0: to X that means ANY key, which would take over every Ctrl+Shift shortcut.
+            self.failure = "This keyboard layout has no key for the hotkey"
+            self.ready.set()
+            return
         catch = xerror.CatchError(xerror.BadAccess)
         # Grab with every combination of CapsLock / NumLock so the hotkey works regardless of them.
         for extra in (0, X.LockMask, X.Mod2Mask, X.LockMask | X.Mod2Mask):

@@ -20,7 +20,7 @@ from vesktop_discord_overlay.preflight import check_or_exit, tell  # noqa: E402
 check_or_exit()  # before anything that needs the packages it checks for
 
 from vesktop_discord_overlay import instance  # noqa: E402
-from vesktop_discord_overlay.config import CACHE_DIR  # noqa: E402
+from vesktop_discord_overlay.config import CACHE_DIR, LOG_MAX_KB  # noqa: E402
 from vesktop_discord_overlay.system import (  # noqa: E402
     activate_vesktop_window, debug_port_open, flatpak_vesktop_installed, other_vesktop_running, quit_vesktop,
     start_vesktop, vesktop_running)
@@ -38,10 +38,24 @@ def ask_restart():
 
 
 
+def trim_log(path, max_bytes=LOG_MAX_KB * 1024):
+    """Keep the log from growing forever: over the limit, keep only its newest half (from a line start)."""
+    try:
+        if path.stat().st_size <= max_bytes:
+            return
+        with open(path, "rb") as f:
+            f.seek(-(max_bytes // 2), 2)
+            tail = f.read()
+        path.write_bytes(tail[tail.find(b"\n") + 1:])
+    except OSError:
+        pass  # no log yet, or it can't be read: nothing to trim
+
+
 def start_overlay():
     if instance.overlay_running():
         return
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    trim_log(CACHE_DIR / "overlay.log")
     log = open(CACHE_DIR / "overlay.log", "a")
     subprocess.Popen([sys.executable, str(HERE / "main.py"), "--follow-vesktop"], cwd=HERE, stdout=log,
                      stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)

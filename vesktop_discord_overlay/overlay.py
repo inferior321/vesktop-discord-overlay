@@ -61,6 +61,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.reload_wanted = False  # it changed while being read: read it again when that finishes
         self.sending = False
         self.first_open = True
+        self.health_checked = False  # asked Vesktop once per run whether all the Discord pieces are there
         self.busy_calls = set()
         self.typing_sent_to = None
         self.typing_sent_at = 0.0
@@ -125,7 +126,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.hotkey.start()
         self.hotkey.ready.wait(3)
         if self.hotkey.failure:
-            tell(f"{self.hotkey.failure} ({HOTKEY_LABEL}; pick another in config.py)")
+            tell(f"{self.hotkey.failure} ({HOTKEY_LABEL}). Pick another one in config.py (HOTKEY_KEYSYM).")
             raise SystemExit(1)
 
     # ---------- UI construction ----------
@@ -547,6 +548,9 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             return
 
         self.search.set_text("")
+        if not self.health_checked:
+            self.health_checked = True
+            self._call("health", on_ok=self._on_health, on_err=self._on_bridge_failed)
         if self.first_open:
             # First open: start wherever Vesktop currently is.
             self.first_open = False
@@ -560,6 +564,18 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self._refresh_voice()
         self.poll_sources = [GLib.timeout_add(LIST_POLL_MS, self._poll_lists),
                              GLib.timeout_add(CHAT_POLL_MS, self._poll_chat)]
+
+    def _on_health(self, missing):
+        if isinstance(missing, list) and missing:
+            tell(f"Discord changed something the overlay relies on, so these may not work: {', '.join(missing)}. "
+                 "Check for an overlay update.")
+
+    def _on_bridge_failed(self, exc):
+        # Its code inside Vesktop failed to start (a RuntimeError), as opposed to a timeout or lost connection.
+        if isinstance(exc, RuntimeError):
+            tell("The overlay couldn't start its helper inside Vesktop; Discord or Vesktop may have changed. "
+                 "Check for an overlay update.")
+        self._show_error(exc)
 
     def _on_current(self, cur):
         if cur and cur["guildId"]:

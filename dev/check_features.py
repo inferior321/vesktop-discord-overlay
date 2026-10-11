@@ -11,7 +11,10 @@ fb.MESSAGES[30] = dict(fb.MESSAGES[30], reactions=[{"emoji": {"char": "👍", "n
                                                    "me": False}])
 ORIGINAL = fb.OLDER[5]  # 115 messages further back: three batches of older history
 fb.MESSAGES[38] = dict(fb.MESSAGES[38], reply={"id": ORIGINAL["id"], "author": "Friend 1", "text": "older…"})
+fb.HEALTH[:] = ["emoji", "your status"]  # pretend a Discord update broke these
+told = []
 fb.install(main)
+main.tell = told.append  # (instead of a desktop notification)
 
 
 def message(o, i):
@@ -31,6 +34,11 @@ def wait(o):
 
 
 # ----- reactions -----
+
+def health(o):
+    print(f"health message: {told}", flush=True)
+    assert len(told) == 1 and "emoji, your status" in told[0], "one plain message naming the broken features"
+
 
 def toggle_on(o):
     o._toggle_reaction(message(o, 30), reaction(o, 30, "👍"))
@@ -278,9 +286,9 @@ def in_voice(o):
     print("status set to dnd; Disconnect shown in voice and leaves it", flush=True)
 
 
-fb.run_steps(main, [toggle_on, wait, toggled_on, wait, toggled_off, open_reaction_picker, pick_reaction, wait,
-                    picked, start_edit, wait, editing, wait, save_edit, wait, saved, wait, empty_edit, wait,
-                    deleted, jump, wait, jumped, text_menu, picker_open, picker_click_inside, picker_switched,
-                    picker_clicked_away, reaction_picker_open, reaction_picker_closed, ctrl_e, ctrl_e_opened, ctrl_g_switched,
-                    ctrl_g_closed, reaction_ignores_ctrl_g, drafts, status, wait,
-                    in_voice], interval_ms=500)
+fb.run_steps(main, [health, toggle_on, wait, toggled_on, wait, toggled_off, open_reaction_picker, pick_reaction,
+                    wait, picked, start_edit, wait, editing, wait, save_edit, wait, saved, wait, empty_edit,
+                    wait, deleted, jump, wait, jumped, text_menu, picker_open, picker_click_inside,
+                    picker_switched, picker_clicked_away, reaction_picker_open, reaction_picker_closed, ctrl_e,
+                    ctrl_e_opened, ctrl_g_switched, ctrl_g_closed, reaction_ignores_ctrl_g, drafts, status,
+                    wait, in_voice], interval_ms=500)

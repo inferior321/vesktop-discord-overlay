@@ -5,15 +5,20 @@
     const W = Vencord.Webpack;
     const C = W.Common;
     const U = Vencord.Util;
-    const Voice = W.findByProps("toggleSelfMute", "toggleSelfDeaf");
-    const EmojiData = W.findByProps("getByName", "convertNameToSurrogate");
-    const EmojiUtils = W.findByProps("getEmojiUnavailableReason");
-    const Parser = W.findByProps("parse", "parsePreprocessor");
-    const Typing = W.findByProps("startTyping", "stopTyping");
-    const VoiceChannels = W.findByProps("disconnect", "selectVoiceChannel");
-    const StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status");
+    // Discord's internal pieces, found by name. A Discord update can rename one: then it's null, the features
+    // that need it stop working, and health() says which, while everything else keeps working.
+    const find = (...props) => { try { return W.findByProps(...props) ?? null; } catch { return null; } };
+    const Voice = find("toggleSelfMute", "toggleSelfDeaf");
+    const EmojiData = find("getByName", "convertNameToSurrogate");
+    const EmojiUtils = find("getEmojiUnavailableReason");
+    const Parser = find("parse", "parsePreprocessor");
+    const Typing = find("startTyping", "stopTyping");
+    const VoiceChannels = find("disconnect", "selectVoiceChannel");
+    let StatusSetting = null;
+    try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
     // Discord's markdown parser, with the options its own message list uses.
-    const Markdown = W.findByProps("parseToAST");
+    const Markdown = find("parseToAST");
+    let liveUpdatesOk = true; // set false below if subscribing to Discord's events fails
     const MD_OPTIONS = { allowLinks: true, allowHeading: true, allowList: true, allowEmojiLinks: true };
     const CHAT_INTENTION = 3; // EmojiIntention.CHAT
 
@@ -23,16 +28,14 @@
     // Tunables for this side (the Python settings live in config.py).
     const ICON_SIZE = 64; // avatar / server icon resolution requested from Discord's CDN
     const FETCH_LIMIT = 50; // messages fetched when a chat isn't loaded yet
-    const PREVIEW_FETCH_GAP_MS = 350; // pause between fetching missing previews, so we never hammer the API
-    const PREVIEW_QUEUE_MAX = 60;
     const PREVIEW_MAX_CHARS = 140;
     const FRECENT_EMOJI = 32; // "Frequently used" emoji shown in the picker
     const CHANGE_BATCH_MS = 50; // changed chats are reported to the overlay at most this often
 
-    // Last-message previews per channel. Lives on window so it survives bridge.js reloads.
+    // Last-message previews per channel, from messages Vesktop already has (opened chats, and messages that
+    // arrive while it runs). Never fetched on purpose: the overlay makes no requests you didn't ask for.
+    // Lives on window so it survives bridge.js reloads.
     const previews = (window.__vesktopOverlayPreviews ??= new Map());
-    const fetchQueue = [];
-    let fetching = false;
 
     const userName = (u, guildId) =>
         (guildId && C.GuildMemberStore.getNick(guildId, u.id)) || u.globalName || u.username;
@@ -323,30 +326,9 @@
         // Prefer what's already loaded in Discord's message cache.
         const loaded = C.MessageStore.getMessages(ch.id)?.last?.();
         if (loaded) rememberPreview(ch.id, loaded);
-        const p = previews.get(ch.id) ?? null;
-        if ((!p || cmpSnowflake(p.id, ch.lastMessageId) < 0) && ch.lastMessageId) queuePreview(ch.id);
-        return p;
+        return previews.get(ch.id) ?? null;
     }
 
-    // Fetch missing previews one at a time so we never hammer Discord's API.
-    function queuePreview(channelId) {
-        if (fetchQueue.includes(channelId) || fetchQueue.length > PREVIEW_QUEUE_MAX) return;
-        fetchQueue.push(channelId);
-        if (!fetching) void drainQueue();
-    }
-
-    async function drainQueue() {
-        fetching = true;
-        while (fetchQueue.length) {
-            const id = fetchQueue.shift();
-            try {
-                const res = await C.RestAPI.get({ url: `/channels/${id}/messages`, query: { limit: 1 } });
-                if (res.body?.[0]) rememberPreview(id, res.body[0]);
-            } catch { /* no access or rate limited; try again on a later refresh */ }
-            await U.sleep(PREVIEW_FETCH_GAP_MS);
-        }
-        fetching = false;
-    }
 
     // Tell the overlay which chats just changed (a message arrived, was edited or deleted, or got a
     // reaction), so it can re-read the open one at once instead of waiting for its next poll. Changes are
@@ -379,16 +361,19 @@
     };
     window.__vesktopOverlayUnsub?.();
     const chatHandlers = Object.entries(CHAT_EVENTS).map(([type, channelOf]) => [type, e => chatChanged(channelOf(e))]);
-    for (const [type, handler] of chatHandlers) C.FluxDispatcher.subscribe(type, handler);
-    window.__vesktopOverlayUnsub = () => {
-        for (const [type, handler] of chatHandlers) C.FluxDispatcher.unsubscribe(type, handler);
-    };
+    try {
+        for (const [type, handler] of chatHandlers) C.FluxDispatcher.subscribe(type, handler);
+        window.__vesktopOverlayUnsub = () => {
+            for (const [type, handler] of chatHandlers) C.FluxDispatcher.unsubscribe(type, handler);
+        };
+    } catch { liveUpdatesOk = false; } // the overlay still polls, just less promptly
 
     // Push "who's typing where" to the overlay as soon as it changes (window.__vesktopOverlayEvent is a
     // DevTools binding added by bridge.py). TypingStore also expires typists on its own; its change
     // listener catches that too.
     // Start by watching every DM, so a friend who was already typing when we connected is still tracked.
-    const typingChannels = new Set(C.PrivateChannelSortStore.getPrivateChannelIds());
+    const typingChannels = new Set();
+    try { C.PrivateChannelSortStore.getPrivateChannelIds().forEach(id => typingChannels.add(id)); } catch { }
     let lastTyping = "";
     function typingNow() {
         const me = myId(), out = {};
@@ -408,12 +393,14 @@
     }
     const onTypingStart = e => { typingChannels.add(e.channelId); };
     window.__vesktopOverlayTypingUnsub?.();
-    C.FluxDispatcher.subscribe("TYPING_START", onTypingStart);
-    C.TypingStore.addChangeListener(pushTyping);
-    window.__vesktopOverlayTypingUnsub = () => {
-        C.FluxDispatcher.unsubscribe("TYPING_START", onTypingStart);
-        C.TypingStore.removeChangeListener(pushTyping);
-    };
+    try {
+        C.FluxDispatcher.subscribe("TYPING_START", onTypingStart);
+        C.TypingStore.addChangeListener(pushTyping);
+        window.__vesktopOverlayTypingUnsub = () => {
+            C.FluxDispatcher.unsubscribe("TYPING_START", onTypingStart);
+            C.TypingStore.removeChangeListener(pushTyping);
+        };
+    } catch { liveUpdatesOk = false; }
 
     function channelCard(ch, withPreview) {
         return {
@@ -443,6 +430,24 @@
     }
 
     return {
+        // Which features can't work because a Discord update renamed something they need ([] = all fine).
+        health() {
+            const needs = {
+                "the chat list": [C.ChannelStore, C.PrivateChannelSortStore, C.GuildStore, C.GuildChannelStore,
+                    C.ReadStateStore, C.UserGuildSettingsStore, C.PresenceStore, C.UserStore],
+                "messages": [C.MessageStore, C.MessageActions, C.RestAPI, Markdown],
+                "sending messages": [Parser, U?.sendMessage],
+                "emoji": [EmojiData, EmojiUtils, C.EmojiStore],
+                "typing indicators": [Typing, C.TypingStore],
+                "live updates": [C.FluxDispatcher, liveUpdatesOk || null],
+                "mute and deafen": [Voice, C.MediaEngineStore],
+                "leaving voice": [VoiceChannels, C.SelectedChannelStore],
+                "your status": [StatusSetting],
+                "opening chats in Vesktop": [C.NavigationRouter, C.ChannelRouter],
+            };
+            return Object.entries(needs).filter(([, parts]) => parts.some(p => !p)).map(([feature]) => feature);
+        },
+
         // DMs and group DMs, most recent first (Discord's own DM order).
         friends() {
             return C.PrivateChannelSortStore.getPrivateChannelIds()

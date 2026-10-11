@@ -9,8 +9,9 @@ client code; it never sees or stores your login token.
 
 ## Features
 
-- **Friends and Servers** with avatars, online status, unread dots, ping counts and last-message previews;
-  servers open into their channel lists. Type to search.
+- **Friends and Servers** with avatars, online status, unread dots, ping counts and last-message previews
+  (for chats Vesktop has loaded: ones you've opened, or with new messages since it started); servers open
+  into their channel lists. Type to search.
 - **Chats** with Discord's formatting (bold, links, mentions, spoilers, code, quotes, lists), server emoji,
   images, GIFs and inline YouTube. New messages, edits, deletions and reactions appear the moment they
   happen; scrolling up loads older messages.
@@ -33,15 +34,18 @@ client code; it never sees or stores your login token.
   allow, and this overlay works through them. People use Vencord widely without trouble, but there is no
   guarantee. Use it at your own risk.
 - **The debug port.** The overlay reaches Vesktop through Chromium's remote-debugging port (9222). While
-  Vesktop runs with that port open, any program running as you on this computer could control your Discord
-  session. The port only listens on your own machine (127.0.0.1); other computers can't reach it.
+  Vesktop runs with that port open, any program on this computer, run by **any user account** on it, could
+  control your Discord session. Other computers can't reach it (it only listens on 127.0.0.1). On a computer
+  only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
   stop working until it's updated to match. Version 1.0.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
-- **What it connects to.** Everything Discord-related goes through Vesktop. The overlay itself downloads only
-  the images, GIFs and thumbnails it shows (from Discord's and YouTube's servers) and caches them in
-  `~/.cache/vesktop-discord-overlay`.
+- **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord
+  for something when you do something (open a chat, which also marks it read like Discord does; send, react,
+  scroll back, search GIFs); it never makes requests on its own in the background. Apart from that, the
+  overlay downloads only the images, GIFs and thumbnails it shows (from Discord's and YouTube's servers) and
+  caches them in `~/.cache/vesktop-discord-overlay`.
 
 ## Requirements
 
@@ -172,8 +176,9 @@ The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered in
 - **Messages about what's wrong.** If the overlay can't work (a Wayland session, a missing package, Vesktop
   not running or not the Flatpak, the hotkey taken), it says so in a desktop notification (and in the terminal, if you started
   it from one) with what to do. Its log is `~/.cache/vesktop-discord-overlay/overlay.log`.
-- **"The hotkey is already taken by another program".** Something else already uses Ctrl+Shift+`. Pick
-  another key in `config.py` (`HOTKEY_KEYSYM`, `HOTKEY_MODIFIERS`, `HOTKEY_LABEL`).
+- **"The hotkey is already taken by another program"** or **"This keyboard layout has no key for the
+  hotkey"**. Something else already uses Ctrl+Shift+`, or your keyboard has no ` key. Pick another key in
+  `config.py` (`HOTKEY_KEYSYM`, `HOTKEY_MODIFIERS`, `HOTKEY_LABEL`).
 - **The panel says "Vesktop isn't reachable".** Vesktop is running without the debug port. Quit it from its
   tray icon and start it from the **Vesktop Discord Overlay** menu entry (or with the command above).
 - **It doesn't work at all on my desktop.** Check that you're on X11: `echo $XDG_SESSION_TYPE` should print

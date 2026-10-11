@@ -43,6 +43,7 @@ VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online",
          "me": {"name": "You", "avatar": None}}
 CALLS = []  # (method, args) of every call the overlay made
 SAVED_STATE = {}  # what state.json holds when the overlay starts (e.g. a remembered chat history)
+HEALTH = []  # features the fake Vesktop reports as broken by a Discord update
 overlay = None  # the running Overlay, once created
 
 
@@ -71,6 +72,8 @@ def install(main, respond_extra=None):
                     "channels": [dict(c) for c in CHANNELS] if args and args[0] else None}
         if method == "voice":
             return dict(VOICE)
+        if method == "health":
+            return list(HEALTH)
         if method == "setStatus":
             VOICE["status"] = args[0]
             return True
