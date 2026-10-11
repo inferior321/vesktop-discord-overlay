@@ -4,6 +4,7 @@
 # Vesktop and Discord account are never touched.
 cd "$(dirname "$0")" || exit 1
 TEST_DISPLAY=${TEST_DISPLAY:-:99}
+export NO_AT_BRIDGE=1  # no accessibility service on the test display; don't warn about it
 if command -v Xvfb >/dev/null; then
     Xvfb "$TEST_DISPLAY" -screen 0 1360x768x24 >/dev/null 2>&1 & SERVER=$!
 elif command -v Xephyr >/dev/null; then
