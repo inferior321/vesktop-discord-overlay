@@ -167,7 +167,7 @@ class CardRow(Gtk.ListBoxRow):
         if p:
             who = "You" if p["self"] else p["author"]
             where = f"#{p['channel']} · " if p.get("channel") else ""
-            self.preview.set_text(f"{where}{who}: {p['text']}")
+            self.preview.set_text(f"{where}{p['text']}" if p.get("system") else f"{where}{who}: {p['text']}")
         self.preview.set_visible(bool(p))
 
         self.time.set_text(relative_time(data["last"]))

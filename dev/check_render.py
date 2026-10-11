@@ -22,6 +22,14 @@ AUTHORS = ["Friend 1", "Friend 1", "You", "Friend 1", "You", "You", "Friend 1"]
 fb.MESSAGES[:] = [fb.msg(i, f"message number {i}", author=AUTHORS[i % len(AUTHORS)]) for i in range(60)]
 fb.MESSAGES[40] = fb.msg(40, "a picture", media=[media("still.png", "image", 160, 90)])
 fb.MESSAGES[41] = fb.msg(41, "", media=[media("anim.gif", "anim", 60, 40)])
+CALL = {"icon": "📞", "text": "Friend 1 started a call that lasted 4 minutes."}
+fb.MESSAGES[43] = fb.msg(43, "", system=CALL)
+FORWARDED = {"content": "see you at 9", "ast": [fb.text("see you at 9")], "media": [], "extras": []}
+fb.MESSAGES[44] = fb.msg(44, "", author="You", forwarded=FORWARDED)
+fb.MESSAGES[46] = fb.msg(46, "", author="You", poll={"question": "Which map?", "total": 3, "closed": False, "expiry": None,
+                                       "answers": [{"text": "Dust", "emoji": "", "count": 2, "me": True},
+                                                   {"text": "Inferno", "emoji": "", "count": 1, "me": False}]})
+fb.MESSAGES[47] = fb.msg(47, "Rolled a 17", author="DiceBot", command={"user": "Friend 1", "name": "roll"})
 OLDER = [fb.msg(i - 100, f"older message {i}") for i in range(10)]
 fb.install(main, lambda method, args: {"messages": [dict(m) for m in OLDER], "more": False}
            if method == "olderMessages" else None)
@@ -63,6 +71,28 @@ seen_views = []  # the media widgets as first drawn
 
 
 def first(o):
+    call = next(w for k, w in o.blocks.items() if k[0] == "msg" and k[1] == str(10**18 + 43))
+    menu = [item[0] if item else "---" for item in o._message_items(fb.MESSAGES[43])]
+    print(f"call message: drawn as a system line ({type(call.get_children()[0]).__name__} icon), menu {menu}",
+          flush=True)
+    assert call.get_children()[0].get_text() == "📞" and menu == ["Copy message link", "---", "Open in Vesktop"]
+
+    def texts(widget):
+        own = [widget.get_text()] if isinstance(widget, main.Gtk.Label) else []
+        kids = widget.get_children() if isinstance(widget, main.Gtk.Container) else []
+        return own + [t for kid in kids for t in texts(kid)]
+    def row(i):
+        return next(w for k, w in o.blocks.items() if k[0] == "msg" and k[1] == str(10**18 + i))
+    shown = {i: " | ".join(texts(row(i))) for i in (44, 46, 47)}
+    print(f"forwarded: {shown[44]!r}\npoll: {shown[46]!r}\nbot command: {shown[47]!r}", flush=True)
+    assert "↱ Forwarded" in shown[44] and "see you at 9" in shown[44]
+    assert "Which map?" in shown[46] and "2 · 67%" in shown[46] and "3 votes" in shown[46]
+    assert "Friend 1 used /roll" in shown[47]
+    assert not any("couldn't be shown" in s for s in shown.values())
+    for i in (44, 46):  # your own forward / poll: Discord can't edit those, so no Edit
+        menu = [item[0] for item in o._message_items(fb.MESSAGES[i]) if item]
+        assert "Edit message" not in menu and "Delete message" in menu, menu
+    print("your own forward and poll: no Edit message, Delete still there", flush=True)
     rebuilt(o)
     seen_views[:] = [id(v) for v in o.media_views]
     assert len(seen_views) == 2, "both media items shown"

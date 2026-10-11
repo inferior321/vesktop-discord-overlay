@@ -13,7 +13,8 @@ client code; it never sees or stores your login token.
   (for chats Vesktop has loaded: ones you've opened, or with new messages since it started); servers open
   into their channel lists. Type to search.
 - **Chats** with Discord's formatting (bold, links, mentions, spoilers, code, quotes, lists), server emoji,
-  images, GIFs and inline YouTube. New messages, edits, deletions and reactions appear the moment they
+  images, GIFs, inline YouTube, forwarded messages, polls, voice messages, bot commands, and Discord's own
+  lines for calls, pins and people joining. New messages, edits, deletions and reactions appear the moment they
   happen; scrolling up loads older messages.
 - **Replying** with emoji and GIF pickers, `:` emoji suggestions and pasted images. Your friends see you
   typing, and you see them typing.

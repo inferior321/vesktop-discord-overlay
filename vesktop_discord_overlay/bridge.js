@@ -146,6 +146,114 @@
         catch { return [{ t: "text", v: content }]; }
     }
 
+    // A forwarded message (Discord shows "↱ Forwarded" and the original): its text, images and files.
+    function forwardedMessage(m, ch) {
+        const snap = (m.messageSnapshots ?? m.message_snapshots ?? [])[0]?.message;
+        if (!snap) return null;
+        const media = messageMedia(snap);
+        return { content: cleanContent(snap.content ?? "", ch.guild_id), ast: messageAst(snap.content ?? "", ch.id),
+                 media, extras: remainingExtras(snap, media) };
+    }
+
+    // A poll: the question, each answer with its votes (and whether one is yours), and whether it has closed.
+    function pollOf(m) {
+        const p = m.poll;
+        if (!p) return null;
+        const counts = field(p.results ?? {}, "answerCounts", "answer_counts") ?? [];
+        const answers = (p.answers ?? []).map(a => {
+            const id = field(a, "answerId", "answer_id");
+            const media = field(a, "pollMedia", "poll_media") ?? {};
+            const c = counts.find(x => x.id === id) ?? {};
+            const emoji = media.emoji?.name ? (media.emoji.id ? `:${media.emoji.name}:` : media.emoji.name) : "";
+            return { text: media.text ?? "", emoji, count: c.count ?? 0, me: !!field(c, "meVoted", "me_voted") };
+        });
+        const expiry = p.expiry ? +new Date(+p.expiry || p.expiry) : null;
+        const closed = !!field(p.results ?? {}, "isFinalized", "is_finalized") || (!!expiry && expiry < Date.now());
+        return { question: p.question?.text ?? "", answers, total: answers.reduce((n, a) => n + a.count, 0), closed,
+                 expiry };
+    }
+
+    // A bot's reply to a slash command: who used which command (Discord shows "Name used /command" above it).
+    function commandOf(m, ch) {
+        const meta = m.interaction ?? m.interactionMetadata ?? m.interaction_metadata;
+        const name = meta?.name ?? meta?.displayName;
+        if (!name) return null;
+        const u = meta.user && (C.UserStore.getUser(meta.user.id) ?? meta.user);
+        return { user: u ? (u.getAvatarURL ? userName(u, ch.guild_id) : u.global_name || u.username) : "Someone",
+                 name: name.replace(/^\//, "") };
+    }
+
+    // Discord's "system messages" (calls, pins, people joining, ...) have no text of their own: Discord writes
+    // the sentence from the message type. Returns { icon, text } (worded like Discord), or null for normal ones.
+    const NORMAL_TYPES = new Set([0, 19, 20, 23]); // default, reply, slash command, app command
+    function systemMessage(m, ch, author) {
+        if (NORMAL_TYPES.has(m.type ?? 0)) return null;
+        const person = x => {
+            const id = x?.id ?? x;
+            const u = C.UserStore.getUser(id);
+            return u ? userName(u, ch?.guild_id) : (x?.global_name || x?.username || "someone");
+        };
+        const target = (m.mentions ?? [])[0];
+        const guild = ch?.guild_id ? C.GuildStore.getGuild(ch.guild_id)?.name ?? "The server" : "The server";
+        switch (m.type) {
+            case 1: return { icon: "→", text: `${author} added ${person(target)} to the group.` };
+            case 2: return (target?.id ?? target) === m.author.id
+                ? { icon: "←", text: `${author} left the group.` }
+                : { icon: "←", text: `${author} removed ${person(target)} from the group.` };
+            case 3: {
+                const call = m.call ?? {};
+                const ended = call.endedTimestamp ?? call.ended_timestamp;
+                if (!ended) return { icon: "📞", text: `${author} started a call.` };
+                const ms = Math.max(0, +new Date(+ended || ended) - +new Date(+m.timestamp || m.timestamp));
+                const lasted = ms < 60_000 ? "a few seconds" : ms < 120_000 ? "a minute"
+                    : ms < 3_600_000 ? `${Math.round(ms / 60_000)} minutes`
+                    : ms < 7_200_000 ? "an hour" : `${Math.round(ms / 3_600_000)} hours`;
+                const joined = (call.participants ?? []).some(x => (x?.id ?? x) === myId());
+                return joined || m.author.id === myId()
+                    ? { icon: "📞", text: `${author} started a call that lasted ${lasted}.` }
+                    : { icon: "📞", text: `You missed a call from ${author} that lasted ${lasted}.` };
+            }
+            case 4: return { icon: "✏", text: `${author} changed the channel name: ${m.content}` };
+            case 5: return { icon: "✏", text: `${author} changed the channel icon.` };
+            case 6: return { icon: "📌", text: `${author} pinned a message to this channel.` };
+            case 7: return { icon: "→", text: `${author} joined the server.` };
+            case 8: return { icon: "🚀", text: `${author} just boosted the server!` };
+            case 9: case 10: case 11:
+                return { icon: "🚀", text: `${author} just boosted the server! ${guild} has achieved Level ${m.type - 8}!` };
+            case 12: return { icon: "→", text: `${author} has added ${m.content} to this channel.` };
+            case 18: return { icon: "🧵", text: `${author} started a thread: ${m.content}` };
+            case 14: return { icon: "⚠", text: "This server has been removed from Server Discovery." };
+            case 15: return { icon: "✓", text: "This server is eligible for Server Discovery again." };
+            case 16: case 17: return { icon: "⚠", text: "This server has failed Server Discovery activity requirements." };
+            case 21: {
+                const ref = m.messageReference ?? m.message_reference;
+                const start = ref && (C.MessageStore.getMessage(ref.channel_id, ref.message_id) ?? m.referenced_message);
+                const said = start ? cleanContent(start.content ?? "", ch?.guild_id).replace(/\s+/g, " ").trim() : "";
+                return { icon: "🧵", text: said ? `This thread started from: "${said.slice(0, PREVIEW_MAX_CHARS)}"`
+                                               : "This thread started from a message in the channel." };
+            }
+            case 22: return { icon: "👋", text: "Invite your friends to this server!" };
+            case 24: return { icon: "🛡", text: `AutoMod has blocked a message from ${author}.` };
+            case 25: return { icon: "⭐", text: `${author} subscribed to the server.` };
+            case 27: return { icon: "🎙", text: `${author} started ${m.content || "a Stage"}.` };
+            case 28: return { icon: "🎙", text: `${author} ended ${m.content || "the Stage"}.` };
+            case 29: return { icon: "🎙", text: `${author} is now a speaker.` };
+            case 31: return { icon: "🎙", text: `${author} changed the Stage topic: ${m.content}` };
+            case 36: return { icon: "🛡", text: `${author} turned on security actions.` };
+            case 37: return { icon: "🛡", text: `${author} turned off security actions.` };
+            case 38: return { icon: "🛡", text: `${author} reported a raid.` };
+            case 39: return { icon: "🛡", text: `${author} reported a false alarm.` };
+            case 46: {
+                const fields = {};
+                for (const f of m.embeds?.[0]?.fields ?? []) fields[f.rawName ?? f.name] = f.rawValue ?? f.value;
+                const q = fields.poll_question_text, won = fields.victor_answer_text;
+                return { icon: "📊", text: `${author}'s poll${q ? ` "${q}"` : ""} has closed` +
+                                           (won ? `: "${won}" won.` : ".") };
+            }
+            default: return m.content ? null : { icon: "•", text: `${author} did something Discord shows specially.` };
+        }
+    }
+
     // One message for the overlay. Works for both Discord's cached message records and raw API messages
     // (older history), which name a few fields differently.
     function formatMessage(m, ch) {
@@ -153,13 +261,20 @@
         const user = C.UserStore.getUser(m.author.id);
         const name = (author, u) => (u ? userName(u, ch.guild_id) : author.global_name || author.globalName || author.username);
         const ref = m.messageReference ?? m.message_reference;
-        const refMsg = ref && (C.MessageStore.getMessage(ref.channel_id, ref.message_id) ?? m.referenced_message);
+        const isForward = ref?.type === 1; // a forward also points at its original, but isn't a reply
+        const refMsg = ref && !isForward
+            && (C.MessageStore.getMessage(ref.channel_id, ref.message_id) ?? m.referenced_message);
         const media = messageMedia(m);
         const gifOnly = isGifLinkOnly(m);
+        const author = name(m.author, user);
         return {
             id: m.id,
             authorId: m.author.id,
-            author: name(m.author, user),
+            author,
+            system: systemMessage(m, ch, author),
+            forwarded: forwardedMessage(m, ch),
+            poll: pollOf(m),
+            command: commandOf(m, ch),
             avatar: user ? absolute(user.getAvatarURL(ch.guild_id, ICON_SIZE, false)) : rawAvatar(m.author),
             self: m.author.id === me,
             time: typeof m.timestamp === "string" ? Date.parse(m.timestamp) : +m.timestamp,
@@ -180,6 +295,7 @@
                 id: ref.message_id,
                 author: name(refMsg.author, C.UserStore.getUser(refMsg.author.id)),
                 text: (cleanContent(refMsg.content ?? "", ch.guild_id).replace(/\s+/g, " ").trim()
+                    || systemMessage(refMsg, ch, "")?.text.trim()
                     || messageExtras(refMsg).join(" ") || "…").slice(0, PREVIEW_MAX_CHARS),
             } : null,
         };
@@ -227,7 +343,10 @@
     // Works for both store message records and raw REST/gateway message objects.
     function messageExtras(m) {
         const extras = [];
-        for (const a of m.attachments ?? []) extras.push(`[attachment: ${a.filename}]`);
+        const forwarded = (m.messageSnapshots ?? m.message_snapshots ?? [])[0]?.message;
+        if (forwarded) extras.push(`↱ ${(forwarded.content ?? "").replace(/\s+/g, " ").trim() || "Forwarded message"}`);
+        if (m.poll) extras.push(`📊 ${m.poll.question?.text ?? "Poll"}`);
+        for (const a of m.attachments ?? []) extras.push(attachmentLabel(a));
         for (const s of m.stickerItems ?? m.sticker_items ?? []) extras.push(`[sticker: ${s.name}]`);
         if (!m.content && m.embeds?.length) extras.push(`[embed${m.embeds[0].title ? ": " + m.embeds[0].title : ""}]`);
         return extras;
@@ -286,12 +405,22 @@
     }
 
     // Extras for things not drawn inline (other files, Lottie stickers, text-only embeds).
+    // "🎤 Voice message · 0:12" for voice messages (they come with a waveform), "🎵 name · 0:12" for other
+    // audio, "[attachment: name]" for other files. (Videos have a duration too, but are drawn as thumbnails.)
+    function attachmentLabel(a) {
+        const secs = field(a, "durationSecs", "duration_secs");
+        const length = secs == null ? "" : ` · ${Math.floor(Math.round(secs) / 60)}:${String(Math.round(secs) % 60).padStart(2, "0")}`;
+        if (a.waveform != null) return `🎤 Voice message${length}`;
+        if ((field(a, "contentType", "content_type") ?? "").startsWith("audio/")) return `🎵 ${a.filename}${length}`;
+        return `[attachment: ${a.filename}]`;
+    }
+
     function remainingExtras(m, media) {
         const extras = [];
         for (const a of m.attachments ?? []) {
             const type = field(a, "contentType", "content_type") ?? "";
             if (!(a.width && a.height && (type.startsWith("image/") || type.startsWith("video/")))) {
-                extras.push(`[attachment: ${a.filename}]`);
+                extras.push(attachmentLabel(a));
             }
         }
         for (const st of m.stickerItems ?? m.sticker_items ?? []) {
@@ -313,12 +442,15 @@
         if (old && cmpSnowflake(old.id, m.id) > 0) return;
         const ch = C.ChannelStore.getChannel(channelId);
         const author = C.UserStore.getUser(m.author.id) ?? m.author;
-        const text = (isGifLinkOnly(m) ? "GIF" : cleanContent(m.content ?? "", ch?.guild_id).replace(/\s+/g, " ").trim())
-            || messageExtras(m).join(" ") || "…";
+        const system = systemMessage(m, ch, userName(author, ch?.guild_id));
+        const text = system ? `${system.icon} ${system.text}`
+            : (isGifLinkOnly(m) ? "GIF" : cleanContent(m.content ?? "", ch?.guild_id).replace(/\s+/g, " ").trim())
+              || messageExtras(m).join(" ") || "…";
         previews.set(channelId, {
             id: m.id,
             author: userName(author, ch?.guild_id),
             self: m.author.id === C.UserStore.getCurrentUser().id,
+            system: !!system, // the text already says who
             text: text.slice(0, PREVIEW_MAX_CHARS),
         });
     }
@@ -359,6 +491,8 @@
         MESSAGE_REACTION_REMOVE: e => e.channelId,
         MESSAGE_REACTION_REMOVE_ALL: e => e.channelId,
         MESSAGE_REACTION_REMOVE_EMOJI: e => e.channelId,
+        MESSAGE_POLL_VOTE_ADD: e => e.channelId ?? e.channel_id, // poll votes come as their own events
+        MESSAGE_POLL_VOTE_REMOVE: e => e.channelId ?? e.channel_id,
     };
     window.__vesktopOverlayUnsub?.();
     const chatHandlers = Object.entries(CHAT_EVENTS).map(([type, channelOf]) => [type, e => chatChanged(channelOf(e))]);

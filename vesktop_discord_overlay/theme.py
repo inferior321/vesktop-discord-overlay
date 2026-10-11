@@ -87,6 +87,18 @@ label link, label link:visited {{ color: #00a8fc; }}
 .md-quote-bar {{ background: {QUOTE_BAR}; border-radius: 2px; min-width: 4px; }}
 .md-jumbo {{ font-size: {pt(30)}; }}
 .msg-reply {{ color: #949ba4; font-size: {pt(8)}; font-style: italic; }}
+.system-icon {{ color: #949ba4; font-size: {pt(11)}; }}
+.system-text {{ color: #949ba4; }}
+.system-text b {{ color: #f2f3f5; }}
+.forward-box {{ border-left: 3px solid {QUOTE_BAR}; padding: 2px 0 2px 10px; margin-left: 2px; }}
+.poll {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; border-radius: 8px; padding: 10px 12px;
+         min-width: 280px; }}
+.poll-question {{ color: #f2f3f5; font-weight: 700; }}
+.poll-answer {{ background: {INPUT}; border-radius: 6px; padding: 5px 10px; }}
+.poll-answer.mine {{ box-shadow: inset 0 0 0 1px {ACCENT}; }}
+.poll-text {{ color: #dbdee1; }}
+.poll-count {{ color: #949ba4; font-size: {pt(8.5)}; }}
+.poll-footer {{ color: #949ba4; font-size: {pt(8)}; }}
 .msg-reply:hover {{ color: #dbdee1; }}
 .msg-flash {{ background: rgba(88, 101, 242, 0.22); }}
 .msg-editing {{ background: rgba(88, 101, 242, 0.12); border-left: 2px solid {ACCENT}; padding: 2px 0 2px 6px; }}

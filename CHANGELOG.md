@@ -6,7 +6,9 @@ First release.
 
 - Ctrl+Shift+` panel over any window: Friends and Servers tabs with avatars, online status, unread dots,
   ping counts and last-message previews; servers open into their channel lists.
-- Chats with Discord's formatting, server emoji, images, GIFs and inline YouTube. Scrolling up loads older
+- Chats with Discord's formatting, server emoji, images, GIFs and inline YouTube, plus Discord's own lines for
+  calls ("started a call that lasted 4 minutes", missed calls), pins, people joining, boosts, stages, AutoMod
+  and poll results; forwarded messages, polls (view only), voice messages and "used /command" for bot replies. Scrolling up loads older
   messages, and new messages, edits, deletions and reactions appear the moment they happen; so do unread
   marks, online status, new DMs and servers in the lists.
 - Replying with emoji and GIF pickers (Ctrl+E / Ctrl+G), `:` emoji suggestions and pasted images; your

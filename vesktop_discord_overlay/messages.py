@@ -176,7 +176,8 @@ class MessagesMixin:
             is_first_unread = (not new_line_done and self.new_marker is not None
                                and int(m["id"]) >= int(self.new_marker))
             starts_group = (prev is None or starts_new_day or is_first_unread or prev["authorId"] != m["authorId"]
-                            or m["time"] - prev["time"] > GROUP_GAP_MINUTES * 60_000 or bool(m["reply"]))
+                            or m["time"] - prev["time"] > GROUP_GAP_MINUTES * 60_000 or bool(m["reply"])
+                            or bool(m.get("system")) or bool(prev.get("system")) or bool(m.get("command")))
             if starts_new_day:
                 text = day_label(m_day)
                 plan.append((("day", m_day, text), lambda text=text: divider(text, "date-sep")))
@@ -204,6 +205,7 @@ class MessagesMixin:
     def _message_key(m):
         """Everything that changes how a message is drawn."""
         return (m["id"], m["author"], m["avatar"], m["content"], m["mentionsMe"], m.get("edited"),
+                str(m.get("system")), str(m.get("forwarded")), str(m.get("poll")), str(m.get("command")),
                 tuple(m["extras"]), tuple(item.get("src") for item in m["media"]),
                 tuple((str(r["emoji"]), r["count"], r["me"]) for r in m.get("reactions", ())))
 
@@ -253,6 +255,8 @@ class MessagesMixin:
     def _message_row(self, m, starts_group):
         """One message. The first of a group from the same author gets the avatar and name; the rest are
         indented to line up under it."""
+        if m.get("system"):
+            return self._system_row(m)
         row = Gtk.Box(spacing=12, margin_top=12 if starts_group else 2)
         if starts_group:
             avatar = Avatar(self.images, MESSAGE_AVATAR)
@@ -266,6 +270,9 @@ class MessagesMixin:
 
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         if starts_group:
+            if m.get("command"):  # a bot answering a slash command: who used which one
+                used = f"↳ {m['command']['user']} used /{m['command']['name']}"
+                col.pack_start(label(used, "msg-reply", ellipsize=True), False, False, 0)
             if m["reply"]:
                 reply = label(f"↳ {m['reply']['author']}: {m['reply']['text']}", "msg-reply", ellipsize=True)
                 if m["reply"].get("id"):  # click it to go to the message it replies to
@@ -296,23 +303,23 @@ class MessagesMixin:
             body.pack_start(widget, False, False, 0)
         views = []
         for index, item in enumerate(m["media"]):
-            view = MediaView(self.images, item, self._open_url, on_play=self._play_youtube,
-                             on_view=self._view_media)
-            view.key = (m["id"], index)
-            if self.kept_player and self.kept_player[0] == view.key:
-                _, player, had_focus = self.kept_player
-                view.adopt_player(player)  # the video that was playing before the redraw
-                if had_focus:
-                    GLib.idle_add(player.grab_focus)  # keep its keys (and Esc back to the panel) working
-                self.player_view, self.kept_player = view, None
-            view.set_margin_top(4)
-            view.set_margin_bottom(2)
-            if not self.win.get_visible():
-                view.set_active(False)
-            body.pack_start(view, False, False, 0)
-            views.append(view)
+            views.append(self._media_view(body, item, (m["id"], index)))
         for extra in m["extras"]:
             body.pack_start(label(extra, "msg-extra", ellipsize=True), False, False, 0)
+        if m.get("forwarded"):  # like Discord: "↱ Forwarded" over the original, set off by a bar
+            forwarded = m["forwarded"]
+            body.pack_start(label("↱ Forwarded", "msg-reply"), False, False, 0)
+            box = add_class(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2), "forward-box")
+            for widget in render_message(forwarded["ast"], RenderContext(Revealed(self.revealed, m["id"] + ":f"),
+                                                                         self._open_url, self.images)):
+                box.pack_start(widget, False, False, 0)
+            for index, item in enumerate(forwarded["media"]):
+                views.append(self._media_view(box, item, (m["id"], "forwarded", index)))
+            for extra in forwarded["extras"]:
+                box.pack_start(label(extra, "msg-extra", ellipsize=True), False, False, 0)
+            body.pack_start(box, False, False, 2)
+        if m.get("poll"):
+            body.pack_start(self._poll_box(m["poll"]), False, False, 4)
         if m.get("reactions"):
             body.pack_start(reaction_row(m["reactions"], self.images, lambda r: self._toggle_reaction(m, r)),
                             False, False, 2)
@@ -326,19 +333,87 @@ class MessagesMixin:
         row.views, row.body = views, body
         return row
 
+    def _media_view(self, box, item, key):
+        """An image / GIF / video / YouTube thumbnail in a message, added to box."""
+        view = MediaView(self.images, item, self._open_url, on_play=self._play_youtube, on_view=self._view_media)
+        view.key = key
+        if self.kept_player and self.kept_player[0] == key:
+            _, player, had_focus = self.kept_player
+            view.adopt_player(player)  # the video that was playing before the redraw
+            if had_focus:
+                GLib.idle_add(player.grab_focus)  # keep its keys (and Esc back to the panel) working
+            self.player_view, self.kept_player = view, None
+        view.set_margin_top(4)
+        view.set_margin_bottom(2)
+        if not self.win.get_visible():
+            view.set_active(False)
+        box.pack_start(view, False, False, 0)
+        return view
+
+    @staticmethod
+    def _poll_box(poll):
+        """A poll, view only (voting is done in Vesktop): the question, each answer with its votes, yours
+        ticked."""
+        box = add_class(Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4), "poll")
+        box.set_halign(Gtk.Align.START)
+        box.pack_start(label(f"📊  {poll['question']}", "poll-question", ellipsize=True), False, False, 0)
+        total = poll["total"] or 1
+        for answer in poll["answers"]:
+            row = add_class(Gtk.Box(spacing=10), "poll-answer")
+            set_class(row, "mine", answer["me"])
+            text = f"{answer['emoji']} {answer['text']}".strip() + ("  ✓" if answer["me"] else "")
+            row.pack_start(label(text, "poll-text", ellipsize=True), True, True, 0)
+            share = round(answer["count"] * 100 / total)
+            row.pack_start(label(f"{answer['count']} · {share}%", "poll-count"), False, False, 0)
+            box.pack_start(row, False, False, 0)
+        votes = f"{poll['total']} vote{'s' if poll['total'] != 1 else ''}"
+        state = "Poll closed" if poll["closed"] else "Vote in Vesktop"
+        box.pack_start(label(f"{votes} · {state}", "poll-footer"), False, False, 0)
+        return box
+
+    def _system_row(self, m):
+        """A Discord system message (a call, a pin, someone joining, ...): one grey line with an icon, as in
+        Discord."""
+        row = Gtk.Box(spacing=12, margin_top=8)
+        icon = label(m["system"]["icon"], "system-icon", xalign=0.5)
+        icon.set_size_request(MESSAGE_AVATAR, -1)
+        row.pack_start(icon, False, False, 0)
+        text, author = m["system"]["text"], m["author"]
+        if text.startswith(author):  # the person in white, the rest grey, as Discord does
+            esc = GLib.markup_escape_text
+            markup = f"<b>{esc(author, -1)}</b>{esc(text[len(author):], -1)}"
+        else:
+            markup = GLib.markup_escape_text(text, -1)
+        body = Gtk.Box(spacing=8)
+        line = label("", "system-text", ellipsize=True)
+        line.set_markup(markup)
+        stamp = label(message_time(m["time"]), "msg-time")
+        body.pack_start(line, False, True, 0)
+        body.pack_start(stamp, False, False, 0)
+        holder = Gtk.EventBox()  # right-click: copy its link, open it in Vesktop
+        holder.add(body)
+        holder.connect("button-press-event", lambda _w, event: self._message_menu(m, event))
+        row.pack_start(holder, True, True, 0)
+        row.views, row.body = [], body
+        return row
+
     # ---------- message right-click menu ----------
 
     def _message_items(self, m, text=None):
         """The message menu, in groups: respond, copy, open, and (your messages) delete, alone and in red.
         text: the label right-clicked, if any; with part of it highlighted the copy group starts with that."""
+        link = f"https://discord.com/channels/{self.open_guild_id or '@me'}/{self.channel_id}/{m['id']}"
+        if m.get("system"):  # nothing to reply to, react to or copy as text
+            return [("Copy message link", lambda: copy_to_clipboard(link)), None,
+                    ("Open in Vesktop", lambda: self._open_message_in_vesktop(m["id"]))]
         respond = [("Reply", lambda: self._start_reply(m)),
                    ("Add reaction", lambda: self._open_reaction_picker(m))]
-        if m["self"]:
+        if m["self"] and not m.get("forwarded") and not m.get("poll"):  # (Discord can't edit those either)
             respond.append(("Edit message", lambda: self._start_edit(m)))
-        whole = m["content"] or (m["media"][0]["full"] if m["media"] else "")
+        whole = (m["content"] or (m.get("forwarded") or {}).get("content") or (m.get("poll") or {}).get("question")
+                 or (m["media"][0]["full"] if m["media"] else ""))
         copy = [("Copy text", lambda: copy_to_clipboard(whole)),
-                ("Copy message link", lambda: copy_to_clipboard(
-                    f"https://discord.com/channels/{self.open_guild_id or '@me'}/{self.channel_id}/{m['id']}"))]
+                ("Copy message link", lambda: copy_to_clipboard(link))]
         if text is not None:
             highlighted, start, end = text.get_selection_bounds()
             if highlighted and start != end:
