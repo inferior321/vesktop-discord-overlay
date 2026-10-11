@@ -12,7 +12,8 @@ First release.
   friends see you typing, and you see them typing.
 - Right-click a message to reply, react, edit or delete your own, copy it or its link, or open it in Vesktop.
   Click a reaction to add or remove yours, and click a reply's quote to jump to the original.
-- Chat history: Ctrl+← / Ctrl+→ step through the last 25 chats you opened.
+- Chat history: Ctrl+← / Ctrl+→ step through the last 25 chats you opened, remembered across restarts;
+  Ctrl+Shift+← removes one, Ctrl+Shift+↓ clears it.
 - Full-panel image / GIF viewer with Copy and Save.
 - Mute, deafen and leave voice; set your status (Online, Idle, Do Not Disturb, Invisible).
 - Marks chats read once you've seen their newest messages, like Discord.

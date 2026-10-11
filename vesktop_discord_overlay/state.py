@@ -1,4 +1,5 @@
-"""Small things remembered between runs (currently the panel opacity), kept in a JSON file."""
+"""Small things remembered between runs (the panel opacity and the Ctrl+Left / Right chat history), kept in a
+JSON file."""
 
 import json
 

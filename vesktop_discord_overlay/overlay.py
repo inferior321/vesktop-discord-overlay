@@ -12,10 +12,10 @@ from .bridge import VesktopBridge
 from .compose import ComposeMixin
 from .config import (CHAT_POLL_MS, CLICK_AWAY_CHECK_MS, CLICK_AWAY_GRACE_SECONDS, DEBUG_PORT, ERROR_MAX_CHARS,
                      ERROR_SHOW_MS, FOCUS_DELAY_MS, FOLLOW_CHECK_SECONDS, FOLLOW_STARTUP_GRACE, HEADER_AVATAR,
-                     HELP_HOVER_CHECK_MS, HELP_HOVER_SIZE, HOTKEY_KEYSYM, HOTKEY_LABEL, HOTKEY_MODIFIERS,
-                     LIST_POLL_MS, LIVE_LIST_REFRESH_MS, NOTE_SHOW_MS, OPACITY_MIN, OPACITY_STEP, PANEL_MAX_H,
-                     PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, USER_AVATAR, VESKTOP_FOCUS_DELAY_MS,
-                     VOICE_SETTLE_SECONDS)
+                     HELP_HOVER_CHECK_MS, HELP_HOVER_SIZE, HISTORY_LENGTH, HOTKEY_KEYSYM, HOTKEY_LABEL,
+                     HOTKEY_MODIFIERS, LIST_POLL_MS, LIVE_LIST_REFRESH_MS, NOTE_SHOW_MS, OPACITY_MIN, OPACITY_STEP,
+                     PANEL_MAX_H, PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, USER_AVATAR,
+                     VESKTOP_FOCUS_DELAY_MS, VOICE_SETTLE_SECONDS)
 from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, WebKit2
 from .history import HistoryMixin
 from .hotkey import HotkeyListener
@@ -79,9 +79,14 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.jump_target = None  # (channel, message id, batches tried) while loading back to a reply's original
         self.status = None  # your status as last shown on the status button
         self.status_set_at = -VOICE_SETTLE_SECONDS
-        self.history = []  # chats you opened, oldest first; each appears once (see _record_visit)
-        self.history_pos = -1
+        # Chats you opened, oldest first, each once (see _record_visit); remembered across restarts.
+        saved = state.load().get("history", [])
+        self.history = [{"id": e["id"], "guildId": e.get("guildId"), "name": e.get("name", "")}
+                        for e in saved if isinstance(e, dict) and e.get("id")][-HISTORY_LENGTH:]
+        self.history_pos = len(self.history) - 1
         self.history_gap = None  # index a pruned chat left, while no chat is open after pruning
+        self.history_step = 0  # direction of the last Ctrl+Left / Right, to step past chats that can't open
+        self.clearing_history = False  # "Clear chat history?" is showing
         self.scroll_memory = {}  # channel id -> (message id at the top of the view, its offset) when you left
         self.restore_to = None
         self.pending_image = None  # PNG bytes pasted into the reply box, sent with the next message
@@ -316,7 +321,16 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         cancel_btn.connect("clicked", lambda *_: self._cancel_delete())
         self.delete_note.pack_start(cancel_btn, False, False, 0)
         self.delete_note.pack_start(delete_btn, False, False, 0)
-        for note in (self.reply_note, self.edit_note, self.attach_note, self.delete_note):
+        self.clear_note = add_class(Gtk.Box(spacing=8), "compose-note", "danger")
+        self.clear_note_label = label("", "compose-text")
+        self.clear_note.pack_start(self.clear_note_label, True, True, 0)
+        for text, css, action in (("Cancel", "plain", lambda: self._cancel_clear_history()),
+                                  ("Clear", "danger", lambda: self._confirm_clear_history())):
+            btn = add_class(Gtk.Button(label=text), css)
+            btn.set_can_focus(False)
+            btn.connect("clicked", lambda _b, action=action: action())
+            self.clear_note.pack_start(btn, False, False, 0)
+        for note in (self.reply_note, self.edit_note, self.attach_note, self.delete_note, self.clear_note):
             note.show_all()
             note.set_no_show_all(True)
             note.hide()
@@ -553,6 +567,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             self.server = {"id": cur["guildId"], "name": ""}
         if cur:
             self._open_conversation(cur["id"])
+            if self.win.get_visible():
+                self._focus_start()  # the first open: the chat arrived after the panel took focus
         else:
             self._show_empty()
         self._update_tab_buttons()
@@ -564,14 +580,26 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             # The window manager ignores plain focus requests from background apps; ask it to activate us.
             run_quiet(["xdotool", "windowactivate", str(gdk_win.get_xid())])
         self.win.present()
-        self._focus_list()  # arrows work right away; typing a letter jumps to search
+        self._focus_start()
         return False
+
+    def _focus_start(self):
+        """Where the panel opens: the open chat's reply box, ready to type (the usual reason to open it);
+        with no chat open, the list, where arrows work right away and typing a letter searches."""
+        if self.channel_id:
+            if not self._highlighted():
+                self._highlight_default()
+            self._focus_reply()
+            self.reply.set_position(-1)
+        else:
+            self._focus_list()
 
     def hide(self):
         for source in self.poll_sources:
             GLib.source_remove(source)
         self.poll_sources = []
         self._cancel_delete()
+        self._cancel_clear_history()
         self._cancel_edit()  # before saving the draft, so the draft is your own text, not the edit
         self._save_draft()
         self._update_draft_marks()
@@ -663,6 +691,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
                 self._disconnect_voice()
             elif lower == "d":
                 self._voice("toggleDeaf")
+            elif name == "Down" and event.state & Gdk.ModifierType.SHIFT_MASK:
+                self._ask_clear_history()  # (asks first)
             elif name in ("Up", "Down"):
                 self._change_opacity(OPACITY_STEP if name == "Up" else -OPACITY_STEP)
             elif name in ("Left", "Right") and event.state & Gdk.ModifierType.SHIFT_MASK:
@@ -704,6 +734,9 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
 
         if name == "Escape":
             self._escape()
+            return True
+        if self.clearing_history and name in ("Return", "KP_Enter"):
+            self._confirm_clear_history()  # wherever the cursor is, Enter answers the question on screen
             return True
 
         if name in ("Tab", "ISO_Left_Tab"):

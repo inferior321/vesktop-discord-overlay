@@ -13,9 +13,8 @@ COLUMNS = [[
     ]),
     ("List", [
         ("↑ ↓", "Move"),
-        ("→", "Open; again: reply box"),
+        ("→", "Open and type (server: channels)"),
         ("←", "Close chat / leave server"),
-        ("Enter", "Open and type"),
         ("Type", "Search"),
         ("Tab", "List ⇄ reply box"),
     ]),
@@ -39,6 +38,7 @@ COLUMNS = [[
         ("Ctrl+← →", "Previous / next chat"),
         ("Ctrl+Shift+←", "Remove chat from history"),
         ("Ctrl+Shift+→", "Show chat in the list"),
+        ("Ctrl+Shift+↓", "Clear history (asks first)"),
     ]),
 ]]
 
@@ -69,7 +69,8 @@ def help_popover(relative_to):
     for sections in COLUMNS:
         columns.pack_start(_column(sections), False, False, 0)
     content.pack_start(columns, False, False, 0)
-    content.pack_start(label(f"vesktop-discord-overlay {__version__}", "help-version", xalign=1.0), False, False, 0)
+    version = label(f"vesktop-discord-overlay {__version__}", "help-version", xalign=1.0)
+    content.pack_start(version, False, False, 0)
     popover.add(content)
     content.show_all()
     return popover

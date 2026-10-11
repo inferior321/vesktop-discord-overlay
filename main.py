@@ -15,11 +15,9 @@ Options:
 
 Panel keys:
     Up/Down          browse the list (Up from the top goes to the search box)
-    Right            go in: open a server's channels, open a chat (focus stays in the list),
-                     and on the already-open chat, move into the reply box
+    Right            go in: a server opens its channels; a friend or channel opens its chat, ready to type
     Left             back out: reply box (cursor at start) -> list -> close the chat -> leave the server
     Up/Down (reply)  scroll the messages; the top loads older ones
-    Enter            open the highlighted chat and jump to the reply box
     type a letter    search the current tab (Down goes back to the list)
     Ctrl+Tab         switch between Friends and Servers
     Tab              list <-> the open chat's reply box (keeps draft, highlight and tab)
@@ -31,8 +29,9 @@ Panel keys:
     Ctrl+Left/Right  previous / next chat you opened (last 25, wraps around)
     Ctrl+Shift+Left  remove the open chat from that history and close it
     Ctrl+Shift+Right show the open chat in the sidebar (Friends or its server), highlighted
+    Ctrl+Shift+Down  clear that history (asks first); the history is remembered across restarts
     F1 / hover ?     list of all shortcuts
-    Ctrl+Shift+`     toggle the panel
+    Ctrl+Shift+`     toggle the panel (opens ready to type in the open chat)
     click an image   open it full size (or reveal a spoiler); clicking outside the panel closes it
     click a YouTube thumbnail  play it inline (Esc back to the panel; hiding the panel stops it)
     right-click      a chat in the list: Open in Vesktop, Mark as read;

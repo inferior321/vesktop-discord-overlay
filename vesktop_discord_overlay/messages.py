@@ -121,13 +121,17 @@ class MessagesMixin:
         if channel_id != self.channel_id:
             return  # user already switched to another conversation
         if "error" in data:
+            if self._drop_unreachable_history(channel_id):
+                return
             self._render_info(data["error"])
             return
         if data["guildId"]:
             self.open_guild_id = data["guildId"]
+        self.history_step = 0
         for entry in self.history:
-            if entry["id"] == channel_id:
+            if entry["id"] == channel_id and (entry["name"], entry["guildId"]) != (data["name"], data["guildId"]):
                 entry.update(name=data["name"], guildId=data["guildId"])
+                self._save_history()  # (names are remembered too, for the "3 / 7 · name" note)
         self._set_header(data["name"], data["place"], data["icon"], rounded=bool(data["guildId"]))
         self.reply.set_placeholder_text(f"Message {data['name'] if data['guildId'] else '@' + data['name']}")
         if not self.typing_live:  # once Vesktop pushes typing changes live, those are always fresher

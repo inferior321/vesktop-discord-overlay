@@ -389,6 +389,7 @@ class LoopingVideo:
             self.pipeline = None
             return
         sink = video_bin.get_by_name("sink")
+        self.pipeline.connect("element-setup", _one_decoder_thread)
         self.pipeline.set_property("uri", Gst.filename_to_uri(str(path)))
         self.pipeline.set_property("video-sink", video_bin)
         self.pipeline.set_property("audio-sink", Gst.ElementFactory.make("fakesink"))
@@ -429,6 +430,13 @@ class LoopingVideo:
 
 
 _stopping = set()  # video players being shut down in the background
+
+
+def _one_decoder_thread(_playbin, element):
+    """GIF clips are tiny: one decoding thread each is plenty. By default the decoder starts one per CPU core
+    for every GIF, so a chat with eight GIFs ran ~130 threads with a frame buffer set each."""
+    if element.find_property("max-threads") is not None:
+        element.set_property("max-threads", 1)
 
 
 YOUTUBE_PAGE = """<!doctype html>

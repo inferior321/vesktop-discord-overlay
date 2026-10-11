@@ -198,7 +198,8 @@ class SidebarMixin:
     # ---------- list keys ----------
 
     def _list_key(self, name, event):
-        """Keys while the conversation list has focus: arrows browse, Right goes in, Left backs out."""
+        """Keys while the conversation list has focus: arrows browse, Right goes in (a chat: straight to its
+        reply box), Left backs out."""
         if name == "Down":
             self._move(1)
         elif name == "Up":
@@ -207,14 +208,9 @@ class SidebarMixin:
             else:
                 self._move(-1)
         elif name == "Right":
-            row = self._highlighted()
-            if row and row.data and row.data["id"] == self.channel_id:
-                self._focus_reply()  # already open: one more level in is the reply box
-                self.reply.set_position(-1)  # continue the draft at its end
-            else:
-                self._enter(row, focus_reply=False)
+            self._enter(self._highlighted())
         elif name in ("Return", "KP_Enter"):
-            self._enter(self._highlighted(), focus_reply=True)
+            pass  # → opens chats; Enter only sends (and the list widget would otherwise open the row itself)
         elif name == "Left":
             self._back()
         elif name in ("Page_Up", "Page_Down", "Home", "End", "BackSpace"):
@@ -238,17 +234,18 @@ class SidebarMixin:
             self._highlight_default()
         self.listbox.grab_focus()
 
-    def _enter(self, row, focus_reply):
-        """Go one level deeper: a server opens its channels; a friend or channel opens its chat."""
+    def _enter(self, row):
+        """Go one level deeper: a server opens its channels; a friend or channel opens its chat, ready to type."""
         if row is None or row.data is None:
             return
         if row.kind == "server":
             self._activate(row)
             self._focus_list()
             return
-        self._open_conversation(row.data["id"])
+        self._open_conversation(row.data["id"])  # (nothing to do if it's already open)
         self._highlight(row)
-        self._focus_reply() if focus_reply else self.listbox.grab_focus()
+        self._focus_reply()
+        self.reply.set_position(-1)  # continue any draft at its end
 
     def _back(self):
         """Go one level up: close the open chat first, then leave the server's channel list."""
@@ -266,6 +263,8 @@ class SidebarMixin:
         (Pickers, suggestions, the "?" list and video focus are handled before this; ← goes back a level.)"""
         if self.deleting:
             self._cancel_delete()
+        elif self.clearing_history:
+            self._cancel_clear_history()
         elif self.editing:
             self._cancel_edit()
         elif self.replying_to:

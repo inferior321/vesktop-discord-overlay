@@ -42,6 +42,7 @@ OLDER = []  # what scrolling up loads, oldest first (served in batches like Disc
 VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online",
          "me": {"name": "You", "avatar": None}}
 CALLS = []  # (method, args) of every call the overlay made
+SAVED_STATE = {}  # what state.json holds when the overlay starts (e.g. a remembered chat history)
 overlay = None  # the running Overlay, once created
 
 
@@ -49,6 +50,11 @@ def install(main, respond_extra=None):
     """Point the overlay module at the fake Vesktop. respond_extra(method, args) can override any answer."""
     main.vesktop_running = lambda: True
     main.instance.acquire = lambda: object()
+    # Remembered settings (opacity, chat history) go to a throwaway file, never the real one.
+    import tempfile
+    main.state.STATE_FILE = Path(tempfile.mkdtemp(prefix="vdo-test-state-")) / "state.json"
+    if SAVED_STATE:
+        main.state.STATE_FILE.write_text(json.dumps(SAVED_STATE))
     bridge = main.VesktopBridge
     bridge.port_open = lambda self: True
 
