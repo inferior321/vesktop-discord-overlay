@@ -2,6 +2,8 @@
 
 [![checks](https://github.com/inferior321/vesktop-discord-overlay/actions/workflows/checks.yml/badge.svg)](https://github.com/inferior321/vesktop-discord-overlay/actions/workflows/checks.yml)
 
+![The overlay: a friends list, a chat with an image, reactions and a call, and voice controls (made-up example)](assets/screenshot.png)
+
 A Discord overlay for Linux. Press **Ctrl+Shift+`** over any window, a game included, to see your friends and
 servers, read and reply, react, send emoji and GIFs, and mute or deafen, without switching to Discord.
 
@@ -102,8 +104,8 @@ git pull
 ./install.sh
 ```
 
-Or download the new version anywhere and run its `./install.sh`. If you had changed `config.py`, your old
-settings are kept as `~/vesktop-discord-overlay/config.py.backup-<date>` so you can copy them back.
+Or download the new version anywhere and run its `./install.sh`. Your `settings.py` is never touched. (If you
+had edited `config.py` itself, the old one is kept as `~/vesktop-discord-overlay/config.py.backup-<date>`.)
 
 ### Uninstall
 
@@ -170,19 +172,29 @@ if you want.
 
 ## Settings
 
-Everything adjustable (the hotkey, text size, panel size, timings, media sizes, the debug port) is in
-`vesktop_discord_overlay/config.py`, grouped and commented. Changes apply the next time the overlay starts.
-The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered in
-`~/.config/vesktop-discord-overlay/state.json`.
+Put your changes in **`~/.config/vesktop-discord-overlay/settings.py`** (the installer creates it with
+examples; remove the `#` in front of a line to use it), for example:
+
+```
+TEXT_SCALE = 1.3
+HOTKEY_KEYSYM = "F12"
+HOTKEY_LABEL = "Ctrl+Shift+F12"
+```
+
+Every setting, with its default and what it does, is listed in `vesktop_discord_overlay/config.py` (the hotkey,
+text size, panel size, timings, media sizes, the debug port). Don't edit that file itself: updates replace it,
+while your `settings.py` is never touched. Changes apply the next time the overlay starts; a misspelled
+setting name is reported in the log. The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered
+in `~/.config/vesktop-discord-overlay/state.json`.
 
 ## Troubleshooting
 
 - **Messages about what's wrong.** If the overlay can't work (a Wayland session, a missing package, Vesktop
-  not running or not the Flatpak, the hotkey taken), it says so in a desktop notification (and in the terminal, if you started
-  it from one) with what to do. Its log is `~/.cache/vesktop-discord-overlay/overlay.log`.
+  not running or not the Flatpak, the hotkey taken), it says so in a desktop notification (and in the
+  terminal, if you started it from one) with what to do. Its log is `~/.cache/vesktop-discord-overlay/overlay.log`.
 - **"The hotkey is already taken by another program"** or **"This keyboard layout has no key for the
   hotkey"**. Something else already uses Ctrl+Shift+`, or your keyboard has no ` key. Pick another key in
-  `config.py` (`HOTKEY_KEYSYM`, `HOTKEY_MODIFIERS`, `HOTKEY_LABEL`).
+  your `settings.py` (`HOTKEY_KEYSYM`, `HOTKEY_MODIFIERS`, `HOTKEY_LABEL`; see Settings above).
 - **The panel says "Vesktop isn't reachable".** Vesktop is running without the debug port. Quit it from its
   tray icon and start it from the **Vesktop Discord Overlay** menu entry (or with the command above).
 - **It doesn't work at all on my desktop.** Check that you're on X11: `echo $XDG_SESSION_TYPE` should print
@@ -217,7 +229,7 @@ The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered in
 | `vesktop_discord_overlay/preflight.py` | Startup checks (Wayland, missing packages) with plain-language messages |
 | `vesktop_discord_overlay/instance.py` | Single-overlay lock |
 | `vesktop_discord_overlay/state.py` | Remembered preferences (`~/.config/vesktop-discord-overlay/state.json`) |
-| `vesktop_discord_overlay/config.py` | **All settings**, grouped and commented |
+| `vesktop_discord_overlay/config.py` | **All settings** with their defaults, grouped and commented; yours go in `settings.py` |
 | `vesktop_discord_overlay/theme.py` | Colors and the GTK stylesheet |
 | `vesktop_discord_overlay/gtk.py` | GTK / GStreamer setup |
 | `dev/` | Testing tools: a fake Vesktop with made-up chats, automatic checks, a private test display |
@@ -231,8 +243,13 @@ account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible)
 - `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history)
   and says whether they passed. GitHub runs them on every push too (the badge at the top).
 - `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
+- `dev/screenshot.sh` remakes `assets/screenshot.png` (the picture above) from made-up chats.
 - `dev/display.sh` opens a test display window with the overlay running on fake data, to try things by hand
   (press Ctrl+Shift+` inside it). `python3 dev/screenshot.py out.png` saves a picture of it.
+
+## Security
+
+Found a security problem? Please report it privately; see [SECURITY.md](SECURITY.md).
 
 ## License
 

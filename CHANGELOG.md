@@ -24,7 +24,8 @@ First release.
   the bottom left. Changes made in Discord itself show instantly.
 - Marks chats read once you've seen their newest messages, like Discord.
 - Makes no Discord requests on its own: list previews come only from messages Vesktop already has.
-- Adjustable opacity (Ctrl+↑ / Ctrl+↓); every other setting in `vesktop_discord_overlay/config.py`.
+- Adjustable opacity (Ctrl+↑ / Ctrl+↓); every other setting can be changed in
+  `~/.config/vesktop-discord-overlay/settings.py`, which updates never touch.
 - App-menu launcher that starts Vesktop with the port the overlay needs, and quits the overlay with Vesktop.
 - `install.sh` checks what's needed and, on Debian / Ubuntu / Mint, installs it after asking; it also offers
   to install Vesktop from Flathub.

@@ -178,7 +178,8 @@ else
     if [[ -f "$old_config" ]] && ! cmp -s "$old_config" "$here/vesktop_discord_overlay/config.py"; then
         backup="$target/config.py.backup-$(date +%Y%m%d-%H%M%S)"  # outside the folder that gets replaced
         cp "$old_config" "$backup"
-        warn "Your previous settings were saved as $backup (copy any changes you made back into vesktop_discord_overlay/config.py)."
+        warn "The old config.py was saved as $backup. If you had changed settings in it, put those lines in"
+        warn "~/.config/vesktop-discord-overlay/settings.py instead (updates never touch that file)."
     fi
     mkdir -p "$target"
     rm -rf "$target/vesktop_discord_overlay"  # so files removed in the new version don't linger
@@ -189,7 +190,27 @@ else
     ok "Copied (you can delete $here now if you like)"
 fi
 
-# ---- 5. The menu entry ----------------------------------------------------------------------------------
+# ---- 5. Your settings file ----------------------------------------------------------------------------------
+settings="${XDG_CONFIG_HOME:-$HOME/.config}/vesktop-discord-overlay/settings.py"
+if [[ ! -e "$settings" ]]; then
+    mkdir -p "$(dirname "$settings")"
+    cat > "$settings" <<'SETTINGS'
+# Your settings for vesktop-discord-overlay. Anything here overrides the default in
+# ~/vesktop-discord-overlay/vesktop_discord_overlay/config.py, which lists every setting and what it does.
+# Updates never touch this file. Remove the # at the start of a line to use it; changes apply the next time
+# the overlay starts.
+
+# TEXT_SCALE = 1.3                          # bigger text everywhere (1 = your desktop's size)
+# HOTKEY_KEYSYM = "grave"                   # the hotkey's key ("grave" is `), e.g. "F12" or "o"
+# HOTKEY_MODIFIERS = X.ControlMask | X.ShiftMask
+# HOTKEY_LABEL = "Ctrl+Shift+`"             # how the hotkey is written in messages
+# PANEL_MAX_W, PANEL_MAX_H = 1080, 720      # the panel's size on large screens
+# HISTORY_LENGTH = 25                       # chats remembered for Ctrl+Left / Ctrl+Right
+SETTINGS
+    ok "Created $settings for your own settings"
+fi
+
+# ---- 6. The menu entry ----------------------------------------------------------------------------------
 say "Adding Vesktop Discord Overlay to the app menu"
 mkdir -p "$apps" "$icons"
 cp "$target/assets/vesktop-discord-overlay.svg" "$icon"

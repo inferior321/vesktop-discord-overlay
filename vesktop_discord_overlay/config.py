@@ -1,4 +1,6 @@
-"""Every tunable setting in one place. Changes take effect the next time the overlay starts.
+"""Every tunable setting, with its default. To change one, don't edit this file (updates replace it): put the
+line in ~/.config/vesktop-discord-overlay/settings.py instead, e.g. `TEXT_SCALE = 1.3`. The installer creates
+that file with examples. Changes take effect the next time the overlay starts.
 
 Sizes are in pixels unless the name says otherwise; times say their unit (_MS, _SECONDS, _MINUTES).
 """
@@ -90,3 +92,30 @@ MEDIA_SMALL_PX = 128  # images this size or smaller (avatars, icons, emoji) alwa
 CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "vesktop-discord-overlay"
 LOG_MAX_KB = 512  # overlay.log (when started from the app menu): over this, it's trimmed to its newest half
 STATE_FILE = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "vesktop-discord-overlay" / "state.json"
+
+# ---- Your settings ---------------------------------------------------------------------------------------
+# ~/.config/vesktop-discord-overlay/settings.py overrides any of the settings above. It's ordinary Python
+# (`X` is there for the hotkey's modifiers), and updates never touch it.
+SETTINGS_FILE = STATE_FILE.parent / "settings.py"
+
+
+def _apply_your_settings():
+    if not SETTINGS_FILE.exists():
+        return
+    import sys
+    settings = {"X": X, "Path": Path}
+    try:
+        exec(compile(SETTINGS_FILE.read_text(), str(SETTINGS_FILE), "exec"), settings)
+    except Exception as exc:  # noqa: BLE001 - a broken settings file mustn't stop the overlay
+        print(f"vesktop-discord-overlay: ignoring {SETTINGS_FILE}: {exc}", file=sys.stderr, flush=True)
+        return
+    known = {name for name in globals() if name.isupper()}
+    for name, value in settings.items():
+        if name.isupper() and name in known:
+            globals()[name] = value
+        elif name.isupper():
+            print(f"vesktop-discord-overlay: {SETTINGS_FILE}: there's no setting called {name}", file=sys.stderr,
+                  flush=True)
+
+
+_apply_your_settings()

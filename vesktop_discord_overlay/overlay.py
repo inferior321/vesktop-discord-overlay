@@ -126,7 +126,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.hotkey.start()
         self.hotkey.ready.wait(3)
         if self.hotkey.failure:
-            tell(f"{self.hotkey.failure} ({HOTKEY_LABEL}). Pick another one in config.py (HOTKEY_KEYSYM).")
+            tell(f"{self.hotkey.failure} ({HOTKEY_LABEL}). Pick another one in your settings.py (HOTKEY_KEYSYM); "
+                 "see the README's Settings section.")
             raise SystemExit(1)
 
     # ---------- UI construction ----------
