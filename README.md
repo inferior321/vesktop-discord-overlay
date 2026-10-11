@@ -19,8 +19,8 @@ client code; it never sees or stores your login token.
   typing, and you see them typing.
 - **Right-click a message** to reply, react, edit or delete your own, copy it or its link, or open it in
   Vesktop. Click a reaction to add or remove yours; click a reply's quote to jump to the original.
-- **Voice and status**: mute, deafen, leave the voice channel, and set Online / Idle / Do Not Disturb /
-  Invisible from the bottom bar.
+- **Voice and status**: mute, deafen and leave the voice channel from the bottom bar; click your name at the
+  bottom left to set Online / Idle / Do Not Disturb / Invisible.
 - **Keyboard-first**: the panel opens ready to type in the chat you were in, so replying is Ctrl+Shift+`,
   type, Enter, Esc. Arrow keys and Tab get you everywhere else; Ctrl+← / Ctrl+→ step through the last 25
   chats you opened. Press F1 for the full list.
@@ -131,19 +131,19 @@ if you want.
 | Key | What it does |
 |---|---|
 | Ctrl+Shift+` | Open / close the panel (clicking outside it also closes it). It opens ready to type in the open chat; with no chat open, in the list |
-| Esc | Close whatever is open on top (picker, suggestions, reply, pasted image, search text); otherwise close the panel |
+| Esc | Close whatever is on top (image viewer, picker, suggestions, a delete / clear-history question, an edit, a reply, a pasted image, search text; in a YouTube player, back to the panel); otherwise close the panel |
 | Ctrl+Tab | Switch between the Friends and Servers tabs |
-| Ctrl+← / Ctrl+→ | Step back / forward through the last 25 chats you opened (wraps around; the sidebar stays put). Remembered across restarts |
+| Ctrl+← / Ctrl+→ | Step back / forward through the last 25 chats you opened, ready to type (wraps around; the sidebar stays put). Remembered across restarts |
 | Ctrl+Shift+→ | Show the open chat in the sidebar (Friends, or its server's channels), highlighted |
 | Ctrl+Shift+← | Remove the open chat from that history and close it (it comes back if you open it again) |
 | Ctrl+Shift+↓ | Clear the whole history (asks first: Enter clears, Esc cancels) |
 | Ctrl+↑ / Ctrl+↓ | Panel opacity, in 5% steps (30% minimum); remembered between runs |
-| ↑ / ↓ | Move through the list |
+| ↑ / ↓ | Move through the list (↑ at the top goes to the search box) |
 | → | Go in: server → its channels; friend or channel → open the chat, ready to type in its reply box |
 | ← | Back out: reply box (cursor at the start) → list → close the chat → leave the server |
 | Tab | Switch between the list and the open chat's reply box (keeps your draft, highlight and tab) |
 | Enter | In the reply box: send. In the search box: open the top match |
-| Type a letter | Search the current tab |
+| Type a letter | Search the current tab (↓ goes back to the list) |
 | ↑ / ↓ (in the reply box) | Scroll the messages; reaching the top loads older ones |
 | Ctrl+E / Ctrl+G (in the reply box), or the 😀 / **GIF** buttons | Emoji / GIF picker; the other one switches, the same one or Esc closes |
 | `:` + two letters | Emoji suggestions. Tab or Enter inserts one |

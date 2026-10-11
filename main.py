@@ -21,12 +21,15 @@ Panel keys:
     type a letter    search the current tab (Down goes back to the list)
     Ctrl+Tab         switch between Friends and Servers
     Tab              list <-> the open chat's reply box (keeps draft, highlight and tab)
-    Enter (reply)    send the message
-    Esc              close the picker / suggestions / reply / pasted image / search text; otherwise close the panel
+    Enter (reply)    send the message (in the search box: open the highlighted match)
+    : + two letters  emoji suggestions (Tab or Enter inserts one)
+    Ctrl+V           with an image copied: attach it to your next message
+    Esc              close what's on top (viewer, picker, suggestions, a question, an edit, a reply, a pasted
+                     image, search text); otherwise close the panel
     Ctrl+M / Ctrl+D  toggle mute / deafen
     Ctrl+Shift+D     leave the voice channel (also the Disconnect button, shown while in voice)
     Ctrl+Up / Down   panel opacity (5% steps, 30% minimum, remembered)
-    Ctrl+Left/Right  previous / next chat you opened (last 25, wraps around)
+    Ctrl+Left/Right  previous / next chat you opened, ready to type (last 25, wraps around)
     Ctrl+Shift+Left  remove the open chat from that history and close it
     Ctrl+Shift+Right show the open chat in the sidebar (Friends or its server), highlighted
     Ctrl+Shift+Down  clear that history (asks first); the history is remembered across restarts

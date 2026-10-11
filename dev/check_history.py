@@ -27,6 +27,7 @@ def back_in_history(o):
     o._step_history(-1)
     print(f"Ctrl+Left: chat {o.channel_id}, sidebar {sidebar(o)}", flush=True)
     assert o.channel_id == "F1" and sidebar(o) == ("servers", "S1", "C1"), "sidebar stays put"
+    assert o.win.get_focus() is o.reply, "ready to type in the chat it switched to"
 
 
 def show_in_sidebar(o):

@@ -78,7 +78,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.reacting_to = None  # message the emoji picker is choosing a reaction for
         self.reaction_return_focus = None
         self.jump_target = None  # (channel, message id, batches tried) while loading back to a reply's original
-        self.status = None  # your status as last shown on the status button
+        self.status = None  # your status as last shown in the user panel (bottom left)
         self.status_set_at = -VOICE_SETTLE_SECONDS
         # Chats you opened, oldest first, each once (see _record_visit); remembered across restarts.
         saved = state.load().get("history", [])
@@ -98,7 +98,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.bridge.on_event = lambda payload: GLib.idle_add(self._on_bridge_event, payload)
         self.voice_state = {"mute": False, "deaf": False, "channel": None}  # as last shown on the buttons
         self.voice_pressed_at = -VOICE_SETTLE_SECONDS
-        self.latest = []  # newest messages of the open chat, as last polled
+        self.latest = []  # newest messages of the open chat, as last read
         self.older = {}  # channel id -> older history loaded by scrolling up (oldest first)
         self.history_done = set()  # channels whose whole history is loaded
         self.loading_older = False

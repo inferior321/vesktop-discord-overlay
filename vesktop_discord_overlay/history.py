@@ -21,7 +21,8 @@ class HistoryMixin:
         self._save_history()
 
     def _step_history(self, delta):
-        """Walk the history without reordering it, wrapping at the ends; the sidebar stays as it is."""
+        """Walk the history without reordering it, wrapping at the ends, into the chat's reply box; the sidebar
+        stays as it is."""
         if not self.history or not self.win.get_visible():
             return
         if self.history_gap is not None:  # just pruned: continue from the gap it left
@@ -33,15 +34,13 @@ class HistoryMixin:
             self.history_pos = (self.history_pos + delta) % len(self.history)
         entry = self.history[self.history_pos]
         self.history_step = delta  # if this chat can't open any more, the next step skips it
-        focus = self.win.get_focus()
         self._close_picker(focus_reply=False)
         # Only the open chat changes; the sidebar stays as it is (Ctrl+Shift+Right brings it to the chat).
         self._open_conversation(entry["id"], from_history=True)
         self.open_guild_id = entry["guildId"]
-        if focus is self.reply:  # focus stays where it was
-            self._focus_reply()
-        elif focus is self.listbox:
-            self.listbox.grab_focus()
+        # Like every way of opening a chat: ready to type (Tab goes back to the list).
+        self._focus_reply()
+        self.reply.set_position(-1)
         label_text = f"{self.history_pos + 1} / {len(self.history)}"
         self._flash(f"{label_text} · {entry['name']}" if entry["name"] else label_text, NOTE_SHOW_MS)
 
