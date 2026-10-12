@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- Custom status: click your name → **Set custom status…** for a small pop-up with your text, an emoji (😀 or
+  Ctrl+E: the same emoji picker, with server emoji if Discord lets you use them in a status), and "Clear after"
+  (Today, 4 hours, 1 hour, 30 minutes, Don't clear). It shows under your name instead of "Online", like Discord,
+  and stays in sync with Discord itself.
+- Hiding the panel now also closes the Voice connected pop-up.
+- Picking an emoji in the reaction picker over a GIF no longer also opens the GIF. Emoji now pick when you let go
+  of the button, like normal buttons, and images / GIFs open only on a whole click on them; sliding off before
+  letting go cancels.
+
 ## 1.2.1
 
 - The Join button follows where you are: the highlighted voice channel while you're in the list, the open chat

@@ -24,14 +24,15 @@ from .messages import MessagesMixin, message_box
 from .pickers import Picker, Suggestions
 from .shortcuts import help_popover
 from .sidebar import SidebarMixin
+from .status import StatusMixin
 from .preflight import tell
 from .system import activate_vesktop_window, other_vesktop_running, run_quiet, vesktop_running
-from .theme import CSS, STATUS_COLORS
+from .theme import CSS
 from .viewer import Viewer
 from .widgets import add_class, fill_menu, label, pointer_inside, set_class, voice_person
 
 
-class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
+class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin):
     """The panel: window, layout, show / hide, keyboard, voice. The rest lives in the mixins."""
 
     def __init__(self):
@@ -231,15 +232,18 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         panel_content.pack_start(self.user_avatar, False, False, 0)
         names = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
         self.user_name = label("", "user-name", ellipsize=True)
-        self.user_status = label("", "user-status")
+        self.user_status = label("", "user-status", ellipsize=True)  # your custom status, or Online / Idle / ...
+        self.user_status_row = Gtk.Box(spacing=4)
+        self.user_status_row.pack_start(self.user_status, True, True, 0)
         names.pack_start(self.user_name, False, False, 0)
-        names.pack_start(self.user_status, False, False, 0)
+        names.pack_start(self.user_status_row, False, False, 0)
         panel_content.pack_start(names, True, True, 0)
         self.user_panel.add(panel_content)
         self.user_panel.connect("clicked", lambda *_: self._status_menu())
         user_bar.pack_start(self.user_panel, True, True, 0)
         side.pack_end(user_bar, False, False, 0)
         self.me = {"name": "", "avatar": None}
+        self._build_custom_status()  # its pop-up, above your name
 
         # Main pane: header, messages, reply box, voice bar.
         main = add_class(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "main")
@@ -647,6 +651,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self._close_picker(focus_reply=False)
         self._stop_youtube()
         self.help.popdown()
+        self.voice_pop.hide()  # at once (popdown() would animate on a hidden window and stay open)
+        self.custom_pop.hide()
         self.viewer.close()
         self.new_marker_for = None  # next time, show the NEW line for whatever is unread then
         for view in self.media_views:
@@ -723,6 +729,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             elif name in ("Left", "Right"):
                 self.viewer.step(-1 if name == "Left" else 1)
             return True  # nothing typed while viewing should land in the reply box behind it
+        if self.custom_pop.get_visible():
+            return False  # (the pop-up handles its own keys, and gets them first; see _custom_status_key)
         if self.voice_pop.get_visible() and name == "Escape":
             self.voice_pop.popdown()  # Esc closes the pop-up, not the whole panel
             return True
@@ -872,6 +880,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         settled = time.monotonic() > self.status_set_at + VOICE_SETTLE_SECONDS
         if v.get("status") and (settled or v["status"] == self.status):
             self._show_status(v["status"])
+        if "custom" in v:
+            self._on_custom_status(v["custom"])
 
     # ---------- who's in your voice channel ----------
 
@@ -893,35 +903,6 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         if not v.get("members"):
             self.voice_people.pack_start(label("Just you", "voice-state"), False, False, 0)
         self.voice_people.show_all()
-
-    # ---------- status / leaving voice ----------
-
-    def _show_status(self, status):
-        self.status = status
-        self.user_status.set_text(STATUS_NAMES.get(status, status))
-        self._show_me()
-
-    def _show_me(self):
-        """Your avatar (with your status as its dot) and name in the user panel."""
-        name = self.me.get("name") or ""
-        self.user_name.set_text(name)
-        dot = "offline" if self.status == "invisible" else self.status  # invisible shows as grey, like Discord
-        self.user_avatar.set(self.me.get("avatar"), name[:1].upper(), dot)
-
-    def _status_menu(self):
-        items = []
-        for status, name in STATUS_NAMES.items():
-            color = STATUS_COLORS.get(status, STATUS_COLORS["offline"])
-            mark = "○" if status == "invisible" else "●"
-            tick = "   ✓" if status == self.status else ""
-            text = f'<span foreground="{color}">{mark}</span>  {name}{tick}'
-            items.append((text, lambda status=status: self._set_status(status)))
-        self._popup_menu(items, None, widget=self.user_panel, markup=True)
-
-    def _set_status(self, status):
-        self._show_status(status)  # at once; the next voice refresh confirms it
-        self.status_set_at = time.monotonic()
-        self._call("setStatus", status, on_err=self._show_error)
 
     # ---------- joining / leaving voice ----------
 
@@ -1030,8 +1011,6 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self._call("focusComposer")
         return False
 
-
-STATUS_NAMES = {"online": "Online", "idle": "Idle", "dnd": "Do Not Disturb", "invisible": "Invisible"}
 
 
 def follow_vesktop():

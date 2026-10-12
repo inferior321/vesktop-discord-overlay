@@ -42,6 +42,8 @@ VOICE_AVATAR = 24  # people in voice channels (the server list; click "Voice con
 HELP_HOVER_SIZE = 30  # hover target around the "?" (bigger than the icon, so it's easy to stay on)
 ERROR_MAX_CHARS = 60  # an error message gets this much room in the bottom bar before the voice label
 PICKER_MIN_H, PICKER_MAX_H = 220, 380  # emoji / GIF picker height
+CUSTOM_STATUS_W = 320  # the custom status pop-up (click your name → Set custom status)...
+CUSTOM_STATUS_EMOJI_H = 200  # ...and its emoji chooser's height
 
 # ---- Messages --------------------------------------------------------------------------------------------
 MESSAGE_COUNT = 30  # newest messages shown when a chat opens

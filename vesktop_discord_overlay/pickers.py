@@ -39,6 +39,30 @@ def match_emoji(entries, query, limit, frecent=()):
     return (starts + contains)[:limit]
 
 
+def all_emoji(catalog, extra):
+    """Everything searchable: the usable server emoji, then all built-in emoji."""
+    entries = [e for group in extra["custom"] for e in group["emojis"]]
+    for category in (catalog or {"categories": []})["categories"]:
+        entries.extend(category["emojis"])
+    return entries
+
+
+def show_emoji(grid, footer, catalog, extra, query):
+    """Fill an emoji grid like Discord's picker: frequently used, server emoji, then each category; with a query,
+    the matches (best first). extra: {"frecent", "custom"}, the emoji usable where it's for."""
+    if query:
+        matches = match_emoji(all_emoji(catalog, extra), query.strip(":"), EMOJI_SEARCH_LIMIT,
+                              [e["name"] for e in extra["frecent"]])
+        grid.set_sections([("Search results", matches)])
+        if not matches:
+            footer.set_text("No emoji match")
+        return
+    sections = [("Frequently used", extra["frecent"])]
+    sections += [(g["guild"], g["emojis"]) for g in extra["custom"]]
+    sections += [(EMOJI_CATEGORY_TITLES.get(c["id"], c["id"].title()), c["emojis"]) for c in catalog["categories"]]
+    grid.set_sections(sections)
+
+
 def emoji_text(entry):
     """What goes into the reply box: the character itself, or :name: for server emoji (converted on send)."""
     return entry["char"] if "char" in entry else f":{entry['name']}: "
@@ -63,10 +87,13 @@ class EmojiGrid(Gtk.DrawingArea):
         self.cursor = 0
         self.width = 0
         self.images = {}  # url -> scaled pixbuf (None while loading)
-        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.add_events(Gdk.EventMask.BUTTON_PRESS_MASK | Gdk.EventMask.BUTTON_RELEASE_MASK
+                        | Gdk.EventMask.POINTER_MOTION_MASK)
+        self.pressed = None  # the emoji the button went down on
         self.connect("draw", self._draw)
         self.connect("size-allocate", self._allocated)
-        self.connect("button-press-event", self._clicked)
+        self.connect("button-press-event", self._pressed)
+        self.connect("button-release-event", self._released)
         self.connect("motion-notify-event", self._hovered)
 
     def set_sections(self, sections):
@@ -148,9 +175,16 @@ class EmojiGrid(Gtk.DrawingArea):
             self._set_cursor(i, scroll=False)
         return False
 
-    def _clicked(self, _widget, event):
-        i = self._index_at(event.x, event.y)
-        if event.button == 1 and i is not None:
+    def _pressed(self, _widget, event):
+        self.pressed = self._index_at(event.x, event.y) if event.button == 1 else None
+        return True
+
+    def _released(self, _widget, event):
+        """Picks on release, like a button (so the whole click stays here: closing the picker on the press let
+        the release fall through to an image under it). Sliding off the emoji before letting go cancels."""
+        i = self._index_at(event.x, event.y) if event.button == 1 else None
+        pressed, self.pressed = self.pressed, None
+        if i is not None and i == pressed:
             self.cursor = i
             self.on_pick(self.entries[i])
         return True
@@ -416,20 +450,9 @@ class Picker(Gtk.Box):
     # ----- emoji -----
 
     def _render_emoji(self, query):
-        catalog, extra = self.app.emoji_catalog, self.app.channel_emoji()
-        if catalog is None:
+        if self.app.emoji_catalog is None:
             return
-        if query:
-            matches = match_emoji(self.app.emoji_entries(), query.strip(":"), EMOJI_SEARCH_LIMIT,
-                                  [e["name"] for e in extra["frecent"]])
-            self.emoji_grid.set_sections([("Search results", matches)])
-            if not matches:
-                self.footer.set_text("No emoji match")
-            return
-        sections = [("Frequently used", extra["frecent"])]
-        sections += [(g["guild"], g["emojis"]) for g in extra["custom"]]
-        sections += [(EMOJI_CATEGORY_TITLES.get(c["id"], c["id"].title()), c["emojis"]) for c in catalog["categories"]]
-        self.emoji_grid.set_sections(sections)
+        show_emoji(self.emoji_grid, self.footer, self.app.emoji_catalog, self.app.channel_emoji(), query)
 
     # ----- GIFs -----
 

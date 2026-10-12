@@ -14,6 +14,9 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
 - [ ] **Delete:** right-click one of your messages → Delete message. It asks first; Enter deletes. Try again
       holding Shift while clicking Delete: no question.
 - [ ] **Status:** click your name at the bottom left, pick Idle, then Online again. Vesktop shows the same.
+- [ ] **Custom status:** click your name → Set custom status…, type something, pick an emoji, Clear after 30
+      minutes, Save. Vesktop (and a friend) show it; it shows under your name. Change it in Vesktop: the panel
+      follows. Clear it from the panel: gone in Vesktop too.
 - [ ] **Voice:** join a voice channel. Ctrl+M / Ctrl+D mute and deafen; muting with Discord's own button
       changes the panel's button at the same moment; Disconnect (or Ctrl+Shift+D) leaves the channel.
 - [ ] **Voice channels:** open a server with voice channels. They're listed last under VOICE, with who's in

@@ -17,11 +17,14 @@
     const Speaking = find("isSpeaking", "getSpeakingDuration") ?? find("isSpeaking");
     let StatusSetting = null;
     try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
+    let CustomStatusSetting = null; // your custom status: { text, emojiId ("0": none), emojiName, expiresAtMs, ... }
+    try { CustomStatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "customStatus") ?? null; } catch { }
     // Discord's markdown parser, with the options its own message list uses.
     const Markdown = find("parseToAST");
     let liveUpdatesOk = true; // set false below if subscribing to Discord's events fails
     const MD_OPTIONS = { allowLinks: true, allowHeading: true, allowList: true, allowEmojiLinks: true };
     const CHAT_INTENTION = 3; // EmojiIntention.CHAT
+    const STATUS_INTENTION = 1; // EmojiIntention.STATUS
 
     const TEXT_TYPES = new Set([0, 5]); // GUILD_TEXT, GUILD_ANNOUNCEMENT
     const VOICE_TYPES = new Set([2, 13]); // GUILD_VOICE, GUILD_STAGE_VOICE
@@ -590,6 +593,20 @@
         }).sort((a, b) => a.name.localeCompare(b.name));
     }
 
+    // Your custom status as the overlay shows it: { text, emoji: {char} | {id, name, url} | null, expires } or null.
+    // (Discord clears an expired one itself, which arrives here like any other change.)
+    function customStatus() {
+        const s = CustomStatusSetting?.getSetting?.();
+        if (!s || !(s.text || s.emojiName)) return null;
+        const expires = Number(s.expiresAtMs ?? 0) || null;
+        if (expires && expires <= Date.now()) return null;
+        const custom = s.emojiId && s.emojiId !== "0";
+        const emoji = !s.emojiName ? null : custom
+            ? { id: s.emojiId, name: s.emojiName, url: `https://cdn.discordapp.com/emojis/${s.emojiId}.png?size=48` }
+            : { char: s.emojiName, name: s.emojiName };
+        return { text: s.text ?? "", emoji, expires };
+    }
+
     function voiceState() {
         const vc = C.ChannelStore.getChannel(C.SelectedChannelStore.getVoiceChannelId());
         return {
@@ -598,6 +615,7 @@
             channel: vc ? channelName(vc) : null,
             members: vc ? voiceMembers(vc) : [],
             status: StatusSetting?.getSetting() ?? null, // online | idle | dnd | invisible
+            custom: customStatus(),
             me: (u => ({ name: userName(u), avatar: absolute(u.getAvatarURL(undefined, ICON_SIZE, false)) }))(
                 C.UserStore.getCurrentUser()),
         };
@@ -652,6 +670,32 @@
     const guildVoiceChannels = gid =>
         (C.GuildChannelStore.getChannels(gid).VOCAL ?? []).map(x => x.channel).filter(c => VOICE_TYPES.has(c.type));
 
+    // Frequently used emoji and the server emoji you may use (in this channel, or for a status), like Discord's picker.
+    function usableEmoji(ch, intention) {
+        const usable = e => {
+            try { return EmojiUtils.getEmojiUnavailableReason({ emoji: e, channel: ch, intention }) == null; }
+            catch { return false; }
+        };
+        const customEntry = e => ({
+            id: e.id,
+            name: e.name,
+            animated: !!e.animated,
+            url: `https://cdn.discordapp.com/emojis/${e.id}.png?size=48`,
+        });
+        const custom = [];
+        for (const g of Object.values(C.GuildStore.getGuilds())) {
+            const emojis = (C.EmojiStore.getGuildEmoji(g.id) ?? []).filter(e => e.available !== false && usable(e));
+            if (emojis.length) custom.push({ guild: g.name, guildId: g.id, emojis: emojis.map(customEntry) });
+        }
+        // The open channel's server first, like Discord's picker.
+        custom.sort((a, b) => (b.guildId === ch?.guild_id) - (a.guildId === ch?.guild_id));
+        const frecent = (C.EmojiStore.emojiFrecencyWithoutFetchingLatest?.frequently ?? [])
+            .filter(e => !e.id || usable(e))
+            .slice(0, FRECENT_EMOJI)
+            .map(e => (e.id ? customEntry(e) : { name: e.uniqueName ?? e.name, char: e.surrogates }));
+        return { frecent, custom };
+    }
+
     // A voice channel's user limit (0: none) and whether it's full for you (moderators can still join).
     function voiceInfo(ch) {
         const limit = ch.type === 2 ? ch.userLimit ?? 0 : 0; // (stages count listeners differently)
@@ -687,6 +731,7 @@
                 "joining and leaving voice": [VoiceChannels, C.SelectedChannelStore],
                 "who's in voice channels": [C.VoiceStateStore],
                 "your status": [StatusSetting],
+                "your custom status": [CustomStatusSetting],
                 "opening chats in Vesktop": [C.NavigationRouter, C.ChannelRouter],
             };
             return Object.entries(needs).filter(([, parts]) => parts.some(p => !p)).map(([feature]) => feature);
@@ -850,29 +895,12 @@
 
         // Per-channel emoji: frequently used, plus the server emoji you're allowed to send in this channel.
         emojiForChannel(channelId) {
-            const ch = C.ChannelStore.getChannel(channelId);
-            const usable = e => {
-                try { return EmojiUtils.getEmojiUnavailableReason({ emoji: e, channel: ch, intention: CHAT_INTENTION }) == null; }
-                catch { return false; }
-            };
-            const customEntry = e => ({
-                id: e.id,
-                name: e.name,
-                animated: !!e.animated,
-                url: `https://cdn.discordapp.com/emojis/${e.id}.png?size=48`,
-            });
-            const custom = [];
-            for (const g of Object.values(C.GuildStore.getGuilds())) {
-                const emojis = (C.EmojiStore.getGuildEmoji(g.id) ?? []).filter(e => e.available !== false && usable(e));
-                if (emojis.length) custom.push({ guild: g.name, guildId: g.id, emojis: emojis.map(customEntry) });
-            }
-            // The open channel's server first, like Discord's picker.
-            custom.sort((a, b) => (b.guildId === ch?.guild_id) - (a.guildId === ch?.guild_id));
-            const frecent = (C.EmojiStore.emojiFrecencyWithoutFetchingLatest?.frequently ?? [])
-                .filter(e => !e.id || usable(e))
-                .slice(0, FRECENT_EMOJI)
-                .map(e => (e.id ? customEntry(e) : { name: e.uniqueName ?? e.name, char: e.surrogates }));
-            return { frecent, custom };
+            return usableEmoji(C.ChannelStore.getChannel(channelId), CHAT_INTENTION);
+        },
+
+        // The same for your custom status: server emoji only if Discord lets you use them there (Nitro).
+        emojiForStatus() {
+            return usableEmoji(null, STATUS_INTENTION);
         },
 
         // GIF picker data. No query: Discord's trending categories. "__trending__": trending GIFs. Else: search.
@@ -962,6 +990,18 @@
 
         // Your status: "online", "idle", "dnd" or "invisible", as if set in Vesktop.
         setStatus(status) { StatusSetting.updateSetting(status); return true; },
+
+        // Set your custom status ({ text, emoji: {char} | {id, name} | null, expires: ms or null }), or clear it (null).
+        setCustomStatus(status) {
+            CustomStatusSetting.updateSetting(status ? {
+                text: status.text ?? "",
+                emojiId: status.emoji?.id ?? "0",
+                emojiName: status.emoji ? status.emoji.id ? status.emoji.name : status.emoji.char : "",
+                expiresAtMs: String(status.expires ?? 0),
+                createdAtMs: String(Date.now()),
+            } : undefined); // (undefined: cleared, as Discord does)
+            return customStatus();
+        },
 
         // Add (add = true) or remove your reaction. emoji: { char } for built-in, { id, name } for server emoji.
         async react(channelId, messageId, emoji, add) {

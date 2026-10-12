@@ -7,7 +7,7 @@ import time
 from .config import (MAX_UPLOAD_MB, NOTE_SHOW_MS, PICKER_MAX_H, PICKER_MIN_H, RELOAD_AFTER_SEND_MS,
                      SUGGESTION_COUNT, TYPING_REPORT_SECONDS, UPLOAD_TIMEOUT_SECONDS)
 from .gtk import Gdk, GLib, Gtk
-from .pickers import emoji_text, match_emoji
+from .pickers import all_emoji, emoji_text, match_emoji
 from .widgets import add_class, pointer_inside, set_class
 
 
@@ -281,11 +281,7 @@ class ComposeMixin:
 
     def emoji_entries(self):
         """Everything searchable: this channel's usable server emoji, then all built-in emoji."""
-        extra = self.channel_emoji()
-        entries = [e for group in extra["custom"] for e in group["emojis"]]
-        for category in (self.emoji_catalog or {"categories": []})["categories"]:
-            entries.extend(category["emojis"])
-        return entries
+        return all_emoji(self.emoji_catalog, self.channel_emoji())
 
     def _insert_emoji(self, entry):
         if self.reacting_to:  # the picker was choosing a reaction

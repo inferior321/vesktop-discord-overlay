@@ -43,7 +43,8 @@ Panel keys:
                      a message: Reply, Add reaction, Edit / Delete (yours), Copy, Open in Vesktop
     click a reaction add yours, or remove it if it's already yours
     click a ↳ quote  go to the message it replies to
-    your name        (bottom left) click it to pick Online / Idle / Do Not Disturb / Invisible
+    your name        (bottom left) click it to pick Online / Idle / Do Not Disturb / Invisible, or set a custom
+                     status (Ctrl+E there picks its emoji; Enter saves, Esc cancels)
     Ctrl+E / Ctrl+G  (in the reply box, or the 😀 / GIF buttons) emoji / GIF picker
     ✎ in the list marks chats with an unsent draft.
 """

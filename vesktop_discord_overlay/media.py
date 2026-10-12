@@ -490,6 +490,10 @@ class MediaView(Gtk.EventBox):
         self.set_halign(Gtk.Align.START)
         self.picture = Picture(self.w, self.h, play_badge=item["kind"] == "poster", spoiler=item.get("spoiler", False))
         self.add(self.picture)
+        # Opens on a whole click: pressed and released on it. (A release alone, e.g. after an emoji picked
+        # above it made the picker vanish, doesn't count.)
+        self.pressed = False
+        self.connect("button-press-event", self._pressed)
         self.connect("button-release-event", self._clicked)
         self.connect("realize", self._set_cursor)
         self.connect("destroy", self._destroyed)
@@ -539,9 +543,17 @@ class MediaView(Gtk.EventBox):
         if self.video:
             (self.video.play if self.active and self.get_mapped() else self.video.pause)()
 
+    def _pressed(self, _widget, event):
+        self.pressed = event.button == 1
+        return False  # (the message under it still gets right-clicks)
+
     def _clicked(self, _widget, event):
-        if event.button != 1:
+        if event.button != 1 or not self.pressed:
             return False
+        self.pressed = False
+        alloc = self.get_allocation()
+        if not (0 <= event.x < alloc.width and 0 <= event.y < alloc.height):
+            return False  # slid off before letting go: no click
         if self.video is None and self.picture.spoiler:
             self.picture.spoiler = False
             self.picture.queue_draw()

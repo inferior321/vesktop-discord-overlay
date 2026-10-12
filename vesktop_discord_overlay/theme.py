@@ -187,6 +187,14 @@ button.voice:disabled .keycap {{ color: #6d6f78; }}
 .voice-label.connected {{ color: #23a55a; font-weight: 700; }}
 .voice-channel {{ color: #b5bac1; font-size: {pt(8)}; }}
 popover.voice-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
+popover.custom-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
+.custom-pop-title {{ color: #f2f3f5; font-weight: 700; }}
+.custom-pop-label {{ color: #949ba4; font-size: {pt(9)}; }}
+popover.custom-pop combobox button {{ background: {INPUT}; background-image: none; color: #dbdee1; border: none;
+    border-radius: 6px; box-shadow: none; }}
+popover.custom-pop combobox button:hover {{ background: {SELECTED}; }}
+button.tool.primary {{ background: {ACCENT}; color: white; }}
+button.tool.primary:hover {{ background: #4752c4; }}
 .voice-pop-title {{ color: #23a55a; font-weight: 700; }}
 .voice-face {{ border: 2px solid transparent; border-radius: 999px; padding: 1px; }}
 .voice-face.speaking {{ border-color: #23a55a; }}

@@ -39,7 +39,7 @@ SERVERS = [card("S1", "Fake Server", unread=True), card("S2", "Other Server")]
 CHANNELS = [card("C1", "general"), card("C2", "memes", unread=True)]
 MESSAGES = [msg(i, f"message number {i}") for i in range(40)]
 OLDER = []  # what scrolling up loads, oldest first (served in batches like Discord)
-VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online", "members": [],
+VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online", "members": [], "custom": None,
          "me": {"name": "You", "avatar": None}}
 CALLS = []  # (method, args) of every call the overlay made
 SAVED_STATE = {}  # what state.json holds when the overlay starts (e.g. a remembered chat history)
@@ -78,6 +78,17 @@ def install(main, respond_extra=None):
             VOICE["status"] = args[0]
             push_voice()
             return True
+        if method == "setCustomStatus":  # like Vesktop: stored, then reported (emoji as Vesktop reports it)
+            status = args[0]
+            if status:
+                emoji = status["emoji"]
+                if emoji:
+                    emoji = (dict(emoji, url=f"https://cdn.discordapp.com/emojis/{emoji['id']}.png?size=48")
+                             if emoji.get("id") else {"char": emoji["char"], "name": emoji["char"]})
+                status = {"text": status["text"], "emoji": emoji, "expires": status["expires"]}
+            VOICE["custom"] = status
+            push_voice()
+            return status
         if method in ("toggleMute", "toggleDeaf"):
             # Like Discord: deafening mutes; unmuting while deafened undeafens.
             if method == "toggleDeaf":
@@ -110,7 +121,7 @@ def install(main, respond_extra=None):
         if method == "emojiCatalog":
             skull = {"name": "skull", "char": "💀", "names": ["skull"]}
             return {"categories": [{"id": "people", "emojis": [skull]}]}
-        if method == "emojiForChannel":
+        if method in ("emojiForChannel", "emojiForStatus"):
             return {"frecent": [], "custom": []}
         if method == "gifs":
             return {"categories": []}

@@ -28,7 +28,8 @@ client code; it never sees or stores your login token.
   Vesktop. Click a reaction to add or remove yours; click a reply's quote to jump to the original.
 - **Voice and status**: mute, deafen, join and leave voice channels from the bottom bar, and click "Voice
   connected" to see who's in the call and who's speaking; click your name at the bottom left to set Online /
-  Idle / Do Not Disturb / Invisible. Both stay in sync with changes made in Discord itself, instantly.
+  Idle / Do Not Disturb / Invisible, or a custom status (text, emoji, "Clear after"). All of it stays in sync
+  with changes made in Discord itself, instantly.
 - **Your friends' status**: their online dot, custom status or activity ("Playing Valorant") in the chat
   header, and in the list where there's no message preview.
 - **Keyboard-first**: the panel opens ready to type in the chat you were in, so replying is Ctrl+Shift+`,
@@ -51,7 +52,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.2.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.3.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
@@ -171,7 +172,8 @@ if you want.
 | Ctrl+M / Ctrl+D | Mute / deafen |
 | Ctrl+Shift+D, or **Join** / **Disconnect** (bottom right) | Join the voice channel highlighted in the list, or whose chat you're typing in (greyed out if it's full); while in a call, leave it |
 | Click **Voice connected ▾** | Who's in your voice channel: speaking, muted, deafened (live); Esc or a click closes it |
-| Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible |
+| Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible, or **Set custom status…** (your custom status shows under your name) |
+| In the custom status pop-up | Type your status; 😀 or Ctrl+E picks an emoji (✕ removes it); choose **Clear after**; Enter or **Save** sets it, **Clear** removes it, Esc cancels |
 | ✎ beside a chat in the list | You left an unsent draft there |
 | F1, or hover the **?** in the bottom-right corner | List of all these shortcuts |
 | Click an image or GIF | View it large inside the panel: ←/→ flip through the chat's media, **Copy** / **Save** (to Downloads), Esc or a click closes |
@@ -218,7 +220,8 @@ in `~/.config/vesktop-discord-overlay/state.json`.
 | `main.py` | Entry point (`--follow-vesktop`: quit when Vesktop exits; `--version`; `--help`) |
 | `launch.py` | What the menu/panel icon runs: starts Vesktop with the port, then the overlay |
 | `install.sh` | Checks / installs what's needed (Debian / Ubuntu / Mint), offers Vesktop, puts the program in `~/vesktop-discord-overlay`, adds the app-menu entry and icon |
-| `vesktop_discord_overlay/overlay.py` | The panel: window, layout, show / hide, keyboard, voice and status |
+| `vesktop_discord_overlay/overlay.py` | The panel: window, layout, show / hide, keyboard, voice |
+| `vesktop_discord_overlay/status.py` | You at the bottom left: your status and custom status (menu and pop-up) |
 | `vesktop_discord_overlay/sidebar.py` | Friends / Servers tabs, search, the list and its keys |
 | `vesktop_discord_overlay/messages.py` | The open chat: drawing messages (only what changed), scrolling, older history, media |
 | `vesktop_discord_overlay/compose.py` | The reply box: replies, edits, deleting, pasted images, sending, reactions, pickers |
@@ -230,7 +233,7 @@ in `~/.config/vesktop-discord-overlay/state.json`.
 | `vesktop_discord_overlay/shortcuts.py` | The shortcut list behind the **?** / F1 |
 | `vesktop_discord_overlay/widgets.py` | Small GTK helpers, menus and the sidebar cards |
 | `vesktop_discord_overlay/bridge.py` | DevTools connection to Vesktop |
-| `vesktop_discord_overlay/bridge.js` | Runs inside Vesktop: reads Discord's stores, sends, edits and reacts, joins and leaves voice, fetches emoji/GIFs, reports new messages, typing and voice changes as they happen |
+| `vesktop_discord_overlay/bridge.js` | Runs inside Vesktop: reads Discord's stores, sends, edits and reacts, joins and leaves voice, sets your status, fetches emoji/GIFs, reports new messages, typing and voice changes as they happen |
 | `vesktop_discord_overlay/hotkey.py` | Global hotkey (X11 key grab) |
 | `vesktop_discord_overlay/system.py` | Process / window helpers: Vesktop start/quit, debug port check, xdotool |
 | `vesktop_discord_overlay/preflight.py` | Startup checks (Wayland, missing packages) with plain-language messages |
@@ -247,8 +250,8 @@ Everything in `dev/` runs against a fake Vesktop with made-up friends, servers a
 account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible) or `Xephyr`
 (`sudo apt install xserver-xephyr`, a window) for the private test display.
 
-- `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history)
-  and says whether they passed. GitHub runs them on every push too (the badge at the top).
+- `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history,
+  voice channels, custom status, mouse clicks) and says whether they passed. GitHub runs them on every push too (the badge at the top).
 - `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
 - `dev/screenshot.sh` remakes `assets/screenshot.png` and `assets/screenshot-voice.png` (the pictures above) from
   made-up chats.
