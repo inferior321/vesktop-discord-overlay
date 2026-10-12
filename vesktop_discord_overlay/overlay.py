@@ -51,6 +51,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
 
         self.channel_id = None
         self.open_guild_id = None  # server of the open conversation, if any
+        self.open_voice = None  # the open chat, if it is a voice channel's: {"id", "name"} (from its header)
         self.rendered_key = None
         self.stick_bottom = True
         self.drafts = {}
@@ -420,6 +421,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.call_btn.set_no_show_all(True)
         self.call_btn.hide()
         voice_box.pack_start(self.call_btn, False, False, 0)
+        self.win.connect_after("set-focus", lambda *_: self._update_call_button())  # list <-> reply box
         bar.pack_start(voice_box, True, True, 0)
         main.pack_start(bar, False, False, 0)
         self.bottom_rows = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)  # user panel and bottom bar line up
@@ -924,24 +926,29 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
     # ---------- joining / leaving voice ----------
 
     def _voice_target(self):
-        """The voice channel Join would join: the highlighted one, else the one whose text chat is open."""
-        row = self._highlighted()
-        if row is not None and row.data and row.data.get("voice"):
-            return row.data
-        return next((c for c in self.channels if c.get("voice") and c["id"] == self.channel_id), None)
+        """The voice channel Join would join, following where you are: in the list (or its search), the
+        highlighted row; anywhere else, the open chat. (Ctrl+← / → leave the list's highlight behind.)"""
+        if self.win.get_focus() in (self.listbox, self.search):
+            row = self._highlighted()
+            return row.data if row is not None and row.data.get("voice") else None
+        listed = next((c for c in self.channels if c.get("voice") and c["id"] == self.channel_id), None)
+        return listed or self.open_voice  # (open_voice: one from another server, e.g. via Ctrl+← / →)
 
     def _update_call_button(self):
         in_call = bool(self.voice_state.get("channel"))
         target = None if in_call else self._voice_target()
-        self.call_text.set_text(f"Join {target['name']}" if target else "Disconnect")
-        set_class(self.call_btn, "join", bool(target))
+        full = bool(target and target.get("full"))
+        self.call_text.set_text("Disconnect" if not target else f"{target['name']} is full" if full
+                                else f"Join {target['name']}")
+        set_class(self.call_btn, "join", bool(target) and not full)
+        self.call_btn.set_sensitive(not full)  # (full: greyed out, like Discord)
         self.call_btn.set_visible(in_call or bool(target))
 
     def _call_button_pressed(self):
         """The button or Ctrl+Shift+D: leave the call you're in, or join the highlighted voice channel."""
         if self.voice_state.get("channel"):
             self._disconnect_voice()
-        elif target := self._voice_target():
+        elif (target := self._voice_target()) and not target.get("full"):
             self._join_voice(target)
 
     def _join_voice(self, channel):

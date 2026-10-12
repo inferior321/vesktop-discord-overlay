@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.1
+
+- The Join button follows where you are: the highlighted voice channel while you're in the list, the open chat
+  while you're typing. Before, after Ctrl+← / Ctrl+→ to a DM it still offered to join the voice channel left
+  highlighted in the list. And a voice channel's chat reached from another server (Ctrl+← / Ctrl+→) offers
+  Join too.
+- Right-click a server → Mark as read also clears its voice channels' chats.
+- Right-click a voice channel → Open in Vesktop shows it with its text chat open (without joining).
+- Voice channels with a user limit show "2/5"; when one is full, the button greys out as "<channel> is full".
+- Voice channels have a grey speaker icon like Discord's, instead of the colour 🔊 emoji.
+- A second README picture shows a server's voice channels and the Voice connected pop-up.
+
 ## 1.2.0
 
 - Voice channels in each server's channel list: after the text channels, under a VOICE heading, in the

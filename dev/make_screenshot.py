@@ -1,7 +1,9 @@
-"""Make the README screenshot (assets/screenshot.png) with the fake Vesktop: invented people, conversation, avatars
-and images, nothing real. Run it through dev/screenshot.sh, which provides a private display.
+"""Make the README screenshots with the fake Vesktop: invented people, conversation, avatars and images, nothing
+real. Run it through dev/screenshot.sh, which makes both on a private display.
 
-With an output path as argument, saves there instead, with the voice pop-up open (for reviewing it)."""
+    make_screenshot.py         assets/screenshot.png: the Friends list and a chat
+    make_screenshot.py voice   assets/screenshot-voice.png: a server's channels with its voice channels, you in a
+                               call, and the Voice connected pop-up open"""
 
 import os
 import sys
@@ -14,9 +16,8 @@ from PIL import Image, ImageDraw, ImageFilter
 import fakebridge as fb
 import vesktop_discord_overlay.overlay as main
 
-README_SHOT = Path(__file__).resolve().parent.parent / "assets" / "screenshot.png"
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else README_SHOT
-VOICE_POPUP = len(sys.argv) > 1
+VOICE_SHOT = sys.argv[1:] == ["voice"]
+OUT = Path(__file__).resolve().parent.parent / "assets" / ("screenshot-voice.png" if VOICE_SHOT else "screenshot.png")
 media_dir = Path(tempfile.mkdtemp(prefix="vdo-shot-"))
 
 
@@ -99,11 +100,34 @@ fb.FRIENDS[:] = [
     friend("F8", "Theo", None, 2880, activity="Playing Minecraft"),
 ]
 fb.SERVERS[:] = [dict(fb.card("S1", "Weekend Raid", unread=True), icon=RAID)]
-fb.VOICE.update(channel="Squad Lounge", status="online", me={"name": "Kai", "avatar": PEOPLE["Kai"]}, members=[
-    dict(id="m", name="Maya", avatar=PEOPLE["Maya"], speaking=True, mute=False, deaf=False, me=False),
-    dict(id="j", name="Jordan", avatar=PEOPLE["Jordan"], speaking=False, mute=False, deaf=False, me=False),
-    dict(id="k", name="Kai", avatar=PEOPLE["Kai"], speaking=False, mute=False, deaf=False, me=True),
-    dict(id="s", name="Sam", avatar=PEOPLE["Sam"], speaking=False, mute=True, deaf=False, me=False)])
+
+
+def in_voice(pid, name, speaking=False, mute=False, me=False):
+    return dict(id=pid, name=name, avatar=PEOPLE[name], speaking=speaking, mute=mute, deaf=False, me=me)
+
+
+def channel(cid, name, preview, by, minutes_ago, unread=False):
+    card = fb.card(cid, name, unread=unread)
+    card.update(last=time.time() * 1000 - minutes_ago * 60_000, preview={"author": by, "self": False, "text": preview})
+    return card
+
+
+def voice_channel(cid, name, members, limit=0):
+    return dict(fb.card(cid, name), last=None, preview=None, voice=True, members=members, limit=limit, full=False)
+
+
+SQUAD_LOUNGE = [in_voice("m", "Maya", speaking=True), in_voice("j", "Jordan"), in_voice("k", "Kai", me=True),
+                in_voice("s", "Sam", mute=True)]
+fb.CHANNELS[:] = [
+    channel("C1", "general", "gg everyone 😄", "Maya", 1),
+    channel("C2", "strats", "rotate B after first pick", "Jordan", 25, unread=True),
+    channel("C3", "clips", "sent the clip 🎬", "Sam", 130),
+    voice_channel("V1", "Squad Lounge", SQUAD_LOUNGE),
+    voice_channel("V2", "Ranked Queue", [in_voice("n", "Nina"), in_voice("c", "Chris")], limit=5),
+    voice_channel("V3", "AFK", []),
+]
+fb.VOICE.update(channel="Squad Lounge", status="online", me={"name": "Kai", "avatar": PEOPLE["Kai"]},
+                members=SQUAD_LOUNGE)
 
 T = fb.text
 MAP = scenery()
@@ -135,10 +159,14 @@ fb.MESSAGES[:] = [
 ]
 fb.MESSAGES[5]["time"] = time.time() * 1000 - 44 * 60_000
 def chat(method, args):
-    """Every chat opens as the conversation with Maya."""
+    """Every chat opens as the same conversation: with Maya, or (the voice shot) in the server's #general."""
+    if method == "current" and VOICE_SHOT:
+        return {"id": "C1", "guildId": "S1"}
     if method == "messages":
-        return {"id": args[0], "name": "Maya", "place": "Direct Message", "icon": PEOPLE["Maya"], "guildId": None,
-                "typing": [], "firstUnreadId": None, "messages": [dict(m) for m in fb.MESSAGES]}
+        where = ({"name": "#general", "place": "Weekend Raid", "icon": RAID, "guildId": "S1"} if VOICE_SHOT else
+                 {"name": "Maya", "place": "Direct Message", "icon": PEOPLE["Maya"], "guildId": None})
+        return {"id": args[0], "typing": [], "firstUnreadId": None, "messages": [dict(m) for m in fb.MESSAGES],
+                **where}
 
 
 fb.install(main, chat)
@@ -159,6 +187,17 @@ def wait(o):
     pass
 
 
-open_popup = [lambda o: o._toggle_voice_people(), wait] if VOICE_POPUP else []
-fb.run_steps(main, [wait, wait, wait, lambda o: o._focus_list(), wait] + open_popup + [shoot], interval_ms=800)
+def show_server(o):
+    o._set_tab("servers")
+    o._activate(o.rows[0])
+
+
+def show_voice(o):
+    o._focus_list()
+    o._highlight(o.rows[0])  # #general, the open chat
+    o._toggle_voice_people()
+
+
+voice = [show_server, wait, show_voice, wait] if VOICE_SHOT else [lambda o: o._focus_list(), wait]
+fb.run_steps(main, [wait, wait, wait] + voice + [shoot], interval_ms=800)
 sys.exit(0)

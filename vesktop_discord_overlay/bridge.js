@@ -652,6 +652,14 @@
     const guildVoiceChannels = gid =>
         (C.GuildChannelStore.getChannels(gid).VOCAL ?? []).map(x => x.channel).filter(c => VOICE_TYPES.has(c.type));
 
+    // A voice channel's user limit (0: none) and whether it's full for you (moderators can still join).
+    function voiceInfo(ch) {
+        const limit = ch.type === 2 ? ch.userLimit ?? 0 : 0; // (stages count listeners differently)
+        const count = Object.keys(C.VoiceStateStore?.getVoiceStatesForChannel?.(ch.id) ?? {}).length;
+        const canBypass = C.PermissionStore?.can?.(C.PermissionsBits?.MOVE_MEMBERS, ch);
+        return { id: ch.id, name: ch.name, limit, full: limit > 0 && count >= limit && !canBypass };
+    }
+
     function headerFor(ch) {
         const guild = ch.guild_id ? C.GuildStore.getGuild(ch.guild_id) : null;
         return {
@@ -660,6 +668,7 @@
             place: guild ? guild.name : ch.type === GROUP_DM ? "Group DM" : "Direct Message",
             icon: channelIcon(ch),
             guildId: guild?.id ?? null,
+            voice: VOICE_TYPES.has(ch.type) ? voiceInfo(ch) : null, // a voice channel's chat
         };
     }
 
@@ -733,7 +742,10 @@
             watchedGuild = guildId;
             const out = guildTextChannels(guildId).map(ch => channelCard(ch, true));
             out.sort((a, b) => a.muted - b.muted || (b.mentions > 0) - (a.mentions > 0) || cmpSnowflake(b.lastId, a.lastId));
-            for (const ch of guildVoiceChannels(guildId)) out.push({ ...channelCard(ch, false), voice: true, members: voiceMembers(ch) });
+            for (const ch of guildVoiceChannels(guildId)) {
+                const { limit, full } = voiceInfo(ch);
+                out.push({ ...channelCard(ch, false), voice: true, members: voiceMembers(ch), limit, full });
+            }
             return out;
         },
 
@@ -891,7 +903,7 @@
         // (the same event Vencord's "read all" plugin sends). Returns whether anything was unread.
         // Mark every unread channel of a server read (right-click a server). Returns how many.
         markServerRead(guildId) {
-            const channels = guildTextChannels(guildId)
+            const channels = [...guildTextChannels(guildId), ...guildVoiceChannels(guildId)]
                 .filter(ch => C.ReadStateStore.hasUnread(ch.id))
                 .map(ch => ({ channelId: ch.id, messageId: C.ReadStateStore.lastMessageId?.(ch.id) ?? ch.lastMessageId,
                               readStateType: 0 }))
@@ -914,7 +926,8 @@
         },
 
         open(channelId) {
-            if (channelId) C.ChannelRouter.transitionToChannel(channelId);
+            // (A voice channel: shows it with its text chat open; Discord doesn't join it.)
+            if (channelId) C.ChannelRouter.transitionToChannel(channelId, { openTextInVoiceIfVoiceChannel: true });
             return true;
         },
 

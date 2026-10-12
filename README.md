@@ -5,7 +5,8 @@
 ![The overlay: a friends list, a chat with an image, reactions and a call, and voice controls (made-up example)](assets/screenshot.png)
 
 A Discord overlay for Linux. Press **Ctrl+Shift+`** over any window, a game included, to see your friends and
-servers, read and reply, react, send emoji and GIFs, and mute or deafen, without switching to Discord.
+servers, read and reply, react, send emoji and GIFs, join voice, and mute or deafen, without switching to
+Discord.
 
 It works with [Vesktop](https://github.com/Vencord/Vesktop), the Discord client built on Vencord. The overlay
 talks to the Vesktop you already have running, so it uses your normal Discord session and Discord's own
@@ -15,7 +16,8 @@ client code; it never sees or stores your login token.
 
 - **Friends and Servers** with avatars, online status, unread dots, ping counts and last-message previews
   (for chats Vesktop has loaded: ones you've opened, or with new messages since it started); servers open
-  into their channel lists, with the voice channels last and who's in them (live). Type to search.
+  into their channel lists, with the voice channels last and who's in them (live; "2/5" where there's a
+  user limit). Type to search.
 - **Chats** with Discord's formatting (bold, links, mentions, spoilers, code, quotes, lists), server emoji,
   images, GIFs, inline YouTube, forwarded messages, polls, voice messages, bot commands, and Discord's own
   lines for calls, pins and people joining. New messages, edits, deletions and reactions appear the moment they
@@ -36,6 +38,8 @@ client code; it never sees or stores your login token.
   devices too.
 - Image viewer, adjustable opacity, unsent-draft markers, and every setting in one commented file.
 
+![A server's channels with its voice channels and who's in them, and the Voice connected pop-up (made-up example)](assets/screenshot-voice.png)
+
 ## Before you use it
 
 - **Discord's terms.** Vencord and Vesktop are client modifications, which Discord's Terms of Service don't
@@ -47,11 +51,11 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.2.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.2.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
-- **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord
-  for something when you do something (open a chat, which also marks it read like Discord does; send, react,
-  scroll back, search GIFs); it never makes requests on its own in the background. Apart from that, the
+- **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
+  something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
+  back, search GIFs, join a call); it never makes requests on its own in the background. Apart from that, the
   overlay downloads only the images, GIFs and thumbnails it shows (from Discord's and YouTube's servers) and
   caches them in `~/.cache/vesktop-discord-overlay`.
 
@@ -165,7 +169,7 @@ if you want.
 | Right-click a message | Reply, Add reaction, Edit / Delete (yours), Copy text, Copy message link, Open in Vesktop (at that message); with part of its text highlighted, also Copy selection |
 | Right-click a friend, server or channel in the list | Mark as read (a server: all its channels), Open in Vesktop |
 | Ctrl+M / Ctrl+D | Mute / deafen |
-| Ctrl+Shift+D, or **Join** / **Disconnect** (bottom right) | Join the highlighted voice channel (or the one whose chat is open); while in a call, leave it |
+| Ctrl+Shift+D, or **Join** / **Disconnect** (bottom right) | Join the voice channel highlighted in the list, or whose chat you're typing in (greyed out if it's full); while in a call, leave it |
 | Click **Voice connected ▾** | Who's in your voice channel: speaking, muted, deafened (live); Esc or a click closes it |
 | Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible |
 | ✎ beside a chat in the list | You left an unsent draft there |
@@ -246,7 +250,8 @@ account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible)
 - `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history)
   and says whether they passed. GitHub runs them on every push too (the badge at the top).
 - `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
-- `dev/screenshot.sh` remakes `assets/screenshot.png` (the picture above) from made-up chats.
+- `dev/screenshot.sh` remakes `assets/screenshot.png` and `assets/screenshot-voice.png` (the pictures above) from
+  made-up chats.
 - `dev/display.sh` opens a test display window with the overlay running on fake data, to try things by hand
   (press Ctrl+Shift+` inside it). `python3 dev/screenshot.py out.png` saves a picture of it.
 

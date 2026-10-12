@@ -181,6 +181,8 @@ button.voice.on .keycap {{ color: white; }}
 button.voice.join {{ background: #248046; color: white; }}
 button.voice.join:hover {{ background: #1a6334; }}
 button.voice.join .keycap {{ color: white; }}
+button.voice:disabled {{ background: {INPUT}; color: #6d6f78; }}
+button.voice:disabled .keycap {{ color: #6d6f78; }}
 .voice-label {{ color: #949ba4; font-size: {pt(8)}; }}
 .voice-label.connected {{ color: #23a55a; font-weight: 700; }}
 .voice-channel {{ color: #b5bac1; font-size: {pt(8)}; }}

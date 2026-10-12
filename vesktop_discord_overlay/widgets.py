@@ -142,9 +142,18 @@ class CardRow(Gtk.ListBoxRow):
         box = Gtk.Box(spacing=10)
         if kind == "channel":
             self.avatar = None
-            self.hash = label("#", "card-hash", xalign=0.5)  # 🔊 for a voice channel
-            self.hash.set_size_request(28, -1)
-            box.pack_start(self.hash, False, False, 0)
+            self.hash = label("#", "card-hash", xalign=0.5)
+            # Instead of # for a voice channel: a grey speaker like Discord's (an emoji if the icon theme lacks it).
+            if Gtk.IconTheme.get_default().has_icon("audio-volume-high-symbolic"):
+                self.speaker = Gtk.Image.new_from_icon_name("audio-volume-high-symbolic", Gtk.IconSize.MENU)
+                self.speaker.set_pixel_size(18)
+            else:
+                self.speaker = Gtk.Label(label="🔊")
+            add_class(self.speaker, "card-hash")
+            self.speaker.set_no_show_all(True)
+            for icon in (self.hash, self.speaker):
+                icon.set_size_request(28, -1)
+                box.pack_start(icon, False, False, 0)
         else:
             self.avatar = Avatar(images, CARD_AVATAR, rounded_square=kind == "server")
             box.pack_start(self.avatar, False, False, 0)
@@ -154,9 +163,12 @@ class CardRow(Gtk.ListBoxRow):
         self.draft = label("✎", "draft-mark")  # you left an unsent message here
         self.draft.set_tooltip_text("Unsent draft")
         self.draft.set_no_show_all(True)
+        self.count = label("", "card-time")  # a voice channel's "3/5" when it has a user limit
+        self.count.set_no_show_all(True)
         name_row = Gtk.Box(spacing=6)
         name_row.pack_start(self.name, False, True, 0)
         name_row.pack_start(self.draft, False, False, 0)
+        name_row.pack_start(self.count, False, False, 0)
         self.preview = label("", "card-preview", ellipsize=True)
         self.preview.set_no_show_all(True)
         text.pack_start(name_row, False, False, 0)
@@ -205,7 +217,12 @@ class CardRow(Gtk.ListBoxRow):
         self.dot.set_visible(mentions == 0 and data["unread"] and not data.get("muted", False))
 
         if self.kind == "channel":
-            self.hash.set_text("🔊" if data.get("voice") else "#")
+            voice = bool(data.get("voice"))
+            self.hash.set_visible(not voice)
+            self.speaker.set_visible(voice)
+            limit = data.get("limit") or 0
+            self.count.set_text(f"{len(data.get('members') or [])}/{limit}")
+            self.count.set_visible(limit > 0)
             self._show_members(data.get("members") or [])
         if self.avatar:
             fallback = data.get("acronym") or data["name"][:1].upper()

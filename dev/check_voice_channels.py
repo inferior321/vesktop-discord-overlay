@@ -35,7 +35,8 @@ def respond(method, args):
     if method == "messages" and args[0].startswith("V"):
         ch = next(c for c in fb.CHANNELS if c["id"] == args[0])
         return {"id": args[0], "name": "🔊 " + ch["name"], "place": "Fake Server", "guildId": "S1", "icon": None,
-                "typing": [], "firstUnreadId": None, "messages": [dict(m) for m in fb.MESSAGES[-5:]]}
+                "typing": [], "firstUnreadId": None, "messages": [dict(m) for m in fb.MESSAGES[-5:]],
+                "voice": {"id": ch["id"], "name": ch["name"]}}
 
 
 fb.install(main, respond)
@@ -74,7 +75,9 @@ def listed(o):
     ids = [r.data["id"] for r in o.rows]
     assert ids == ["C1", "C2", "V1", "V2"], f"text channels, then voice channels: {ids}"
     lounge, quiet = row(o, "V1"), row(o, "V2")
-    assert lounge.hash.get_text() == "🔊" and row(o, "C1").hash.get_text() == "#"
+    assert lounge.speaker.get_visible() and not lounge.hash.get_visible(), "a speaker instead of #"
+    assert row(o, "C1").hash.get_visible() and not row(o, "C1").speaker.get_visible()
+    assert not lounge.count.get_visible(), "no count without a user limit"
     headings = [r.get_header().get_text() if r.get_header() else None for r in o.rows]
     assert headings == [None, None, "VOICE", None], f"one VOICE heading above the voice channels: {headings}"
     people = texts(lounge.people)
@@ -133,7 +136,7 @@ def joined(o):
     print("Ctrl+Shift+D joins the open voice channel; in the call the button is Disconnect", flush=True)
     lounge = fb.CHANNELS[2]  # Friend 1 stops talking (new lists, as each real update brings)
     lounge["members"] = [dict(p, speaking=False) for p in lounge["members"]]
-    fb.CHANNELS[3]["members"] = [person("u3", "Friend 3")]  # someone joins Quiet Room
+    fb.CHANNELS[3].update(members=[person("u3", "Friend 3")], limit=1, full=True)  # Quiet Room fills up (1 max)
     fb.push_lists()
 
 
@@ -149,22 +152,62 @@ def searched(o):
     assert visible == [row(o, "V2")], visible
     assert row(o, "V2").get_header() is not None, "the heading follows the search"
     print("who's in each channel updates live; search keeps the heading", flush=True)
+    assert row(o, "V2").count.get_text() == "1/1" and row(o, "V2").count.get_visible()
+    o._focus_search()
+    o._highlight(row(o, "V2"))
+    o._on_voice(dict(o.voice_state, channel=None))  # (as if not in a call, for a moment)
+    assert button(o) == ("Quiet Room is full", False) and not o.call_btn.get_sensitive(), button(o)
+    joins = len(fb.CALLS)
+    o._call_button_pressed()
+    assert not any(m == "joinVoice" for m, _ in fb.CALLS[joins:]), "a full channel can't be joined"
+    print("a user limit shows as 1/1; full: a grey, unclickable 'Quiet Room is full'", flush=True)
+    o._refresh_voice(skip_if_busy=False)  # back in the call
+    o._focus_reply()
+
+
+def disconnect(o):
+    assert button(o) == ("Disconnect", False) and o.call_btn.get_sensitive(), button(o)
     o._call_button_pressed()
 
 
 def left(o):
     assert ("disconnectVoice", ()) in fb.CALLS
-    assert button(o) == ("Join Quiet Room", True), f"after leaving, Join is back ({button(o)})"
+    assert button(o) == ("Join Lounge", True), f"after leaving, Join is back for the open chat ({button(o)})"
     print("the button leaves the call, then offers Join again", flush=True)
+    o.search.set_text("")
+    o._focus_list()
+    o._highlight(row(o, "V1"))
+    assert button(o) == ("Join Lounge", True), button(o)
+    o._on_key(o.win, key_event(main.Gdk.KEY_Left, ctrl=True))  # Ctrl+←: back to the DM opened first
 
 
-def key_event(char, ctrl=False, shift=False):
+def history_step(o):
+    assert o.channel_id == "F1" and o._highlighted() is row(o, "V1"), (o.channel_id, o._highlighted())
+    assert button(o) is None, f"typing in a DM: no Join, though the list still highlights a voice channel"
+    o._focus_list()
+    assert button(o) == ("Join Lounge", True), f"back in the list on it: Join again ({button(o)})"
+    print("Join follows where you are: Ctrl+← to a DM hides it, back in the list on the channel shows it",
+          flush=True)
+    o._leave_server()
+    o._set_tab("friends")
+    o.channels = []  # as if another server's channels were open
+    o._open_conversation("V2")
+    o._focus_reply()
+
+
+def other_server_voice(o):
+    assert button(o) == ("Join Quiet Room", True), f"a voice chat from elsewhere still offers Join ({button(o)})"
+    print("a voice channel's chat reached from elsewhere (not in the open list) offers Join too", flush=True)
+
+
+def key_event(key, ctrl=False, shift=False):
+    """A key press: a character ("d") or a key value (Gdk.KEY_Left)."""
     event = main.Gdk.Event.new(main.Gdk.EventType.KEY_PRESS)
-    event.keyval = main.Gdk.unicode_to_keyval(ord(char.upper() if shift else char))
+    event.keyval = main.Gdk.unicode_to_keyval(ord(key.upper() if shift else key)) if isinstance(key, str) else key
     event.state = (main.Gdk.ModifierType.CONTROL_MASK if ctrl else 0) | (
         main.Gdk.ModifierType.SHIFT_MASK if shift else 0)
     return event
 
 
 fb.run_steps(main, [wait, open_server, wait, listed, arrows, wait, opened_voice_chat, join, wait, joined, wait,
-                    wait, live, wait, searched, wait, left], interval_ms=600)
+                    wait, live, wait, searched, wait, disconnect, wait, left, wait, history_step, wait, other_server_voice], interval_ms=600)

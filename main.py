@@ -27,7 +27,8 @@ Panel keys:
     Esc              close what's on top (viewer, picker, suggestions, a question, an edit, a reply, a pasted
                      image, search text); otherwise close the panel
     Ctrl+M / Ctrl+D  toggle mute / deafen
-    Ctrl+Shift+D     join the highlighted voice channel; in a call, leave it (also the Join / Disconnect button)
+    Ctrl+Shift+D     join the voice channel highlighted in the list, or whose chat you're typing in; in a call,
+                     leave it (also the Join / Disconnect button)
     Voice connected  (click it) who's in your voice channel and who's speaking
     Ctrl+Up / Down   panel opacity (5% steps, 30% minimum, remembered)
     Ctrl+Left/Right  previous / next chat you opened, ready to type (last 25, wraps around)
