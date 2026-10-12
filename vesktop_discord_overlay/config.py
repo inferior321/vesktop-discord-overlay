@@ -38,6 +38,7 @@ CARD_AVATAR = 40  # friend / server pictures in the list
 MESSAGE_AVATAR = 36
 HEADER_AVATAR = 32
 USER_AVATAR = 32  # you, in the user panel at the bottom of the sidebar
+VOICE_AVATAR = 24  # people in voice channels (the server list; click "Voice connected")
 HELP_HOVER_SIZE = 30  # hover target around the "?" (bigger than the icon, so it's easy to stay on)
 ERROR_MAX_CHARS = 60  # an error message gets this much room in the bottom bar before the voice label
 PICKER_MIN_H, PICKER_MAX_H = 220, 380  # emoji / GIF picker height

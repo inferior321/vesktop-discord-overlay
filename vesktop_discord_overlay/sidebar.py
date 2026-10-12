@@ -1,7 +1,7 @@
 """The sidebar: Friends / Servers tabs, search, the card list and its keys."""
 
 from .gtk import Gdk, GLib
-from .widgets import CardRow, set_class
+from .widgets import CardRow, label, set_class
 
 
 class SidebarMixin:
@@ -44,6 +44,7 @@ class SidebarMixin:
             badge.set_visible(counts[key] > 0)
             self.tab_dots[key].set_visible(counts[key] == 0 and unread[key])
         self._render_sidebar()
+        self._update_header_status()  # the open DM's status dot in the header
 
     def _render_sidebar(self):
         if self.tab == "friends":
@@ -94,6 +95,16 @@ class SidebarMixin:
 
     def _filter_row(self, row):
         return row.matches(self.search.get_text().lower().split())
+
+    def _row_heading(self, row, before):
+        """A "VOICE" heading above the first voice channel (a heading, not a row, so the arrows skip it)."""
+        first_voice = row.data.get("voice") and not (before and before.data.get("voice"))
+        if first_voice and row.get_header() is None:
+            heading = label("VOICE", "list-heading")
+            heading.show()
+            row.set_header(heading)
+        elif not first_voice and row.get_header() is not None:
+            row.set_header(None)
 
     def _visible_rows(self):
         terms = self.search.get_text().lower().split()

@@ -16,6 +16,9 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
 - [ ] **Status:** click your name at the bottom left, pick Idle, then Online again. Vesktop shows the same.
 - [ ] **Voice:** join a voice channel. Ctrl+M / Ctrl+D mute and deafen; muting with Discord's own button
       changes the panel's button at the same moment; Disconnect (or Ctrl+Shift+D) leaves the channel.
+- [ ] **Voice channels:** open a server with voice channels. They're listed last under VOICE, with who's in
+      them. → opens one's text chat; the bottom-right button then says Join <channel>, and it (or
+      Ctrl+Shift+D) joins: you appear under the channel and the button becomes Disconnect.
 - [ ] **Open in Vesktop:** right-click a friend, a channel and a server in the list → Open in Vesktop. Vesktop
       comes up on it with its message box focused.
 - [ ] **Read elsewhere:** read a chat on your phone or in Vesktop's window. Its unread dot in the panel clears

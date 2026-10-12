@@ -16,7 +16,7 @@ from .config import (CHAT_POLL_MS, CLICK_AWAY_CHECK_MS, CLICK_AWAY_GRACE_SECONDS
                      HOTKEY_MODIFIERS, LIST_POLL_MS, LIVE_LIST_REFRESH_MS, NOTE_SHOW_MS, OPACITY_MIN, OPACITY_STEP,
                      PANEL_MAX_H, PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, USER_AVATAR,
                      VESKTOP_FOCUS_DELAY_MS, VOICE_SETTLE_SECONDS)
-from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, WebKit2
+from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, Pango, WebKit2
 from .history import HistoryMixin
 from .hotkey import HotkeyListener
 from .media import Avatar, MediaCache, Picture
@@ -28,7 +28,7 @@ from .preflight import tell
 from .system import activate_vesktop_window, other_vesktop_running, run_quiet, vesktop_running
 from .theme import CSS, STATUS_COLORS
 from .viewer import Viewer
-from .widgets import add_class, fill_menu, label, pointer_inside, set_class
+from .widgets import add_class, fill_menu, label, pointer_inside, set_class, voice_person
 
 
 class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
@@ -68,6 +68,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.revealed = {}  # message id -> spoiler numbers clicked open (only messages where you did)
         self.marked_read = {}  # channel id -> newest message id we've marked read
         self.typing_now = {}  # channel id -> names typing there, pushed live by Vesktop
+        self.typing_text = ""  # "… is typing" for the open chat (else the header shows the friend's activity)
         self.context_menu = None
         self.opacity = min(1.0, max(OPACITY_MIN, float(state.load().get("opacity", 1.0))))
         self.replying_to = None  # message the next send replies to
@@ -211,8 +212,10 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.set_can_focus(True)  # arrow-key navigation zone; see _list_key
         self.listbox.set_filter_func(self._filter_row)
+        self.listbox.set_header_func(self._row_heading)  # "VOICE" above a server's voice channels
         self.listbox.connect("row-activated", lambda _lb, row: self._activate(row))
         self.listbox.connect("button-press-event", self._list_menu)
+        self.listbox.connect("row-selected", lambda *_: self._update_call_button())
         self.list_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.list_scroll.add(self.listbox)
         side.pack_start(self.list_scroll, True, True, 4)
@@ -391,13 +394,32 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self.voice_channel.set_no_show_all(True)
         voice_text.pack_start(self.voice_label, False, False, 0)
         voice_text.pack_start(self.voice_channel, False, False, 0)
-        voice_box.pack_start(voice_text, False, True, 0)
-        self.disconnect_btn, _ = self._keyed_button("Disconnect", "Ctrl+Shift+D", "voice",
-                                                    self._disconnect_voice)
-        self.disconnect_btn.show_all()
-        self.disconnect_btn.set_no_show_all(True)  # only while you're in a voice channel
-        self.disconnect_btn.hide()
-        voice_box.pack_start(self.disconnect_btn, False, False, 0)
+        # Click it (while in a call) to see who's there: a pop-up of everyone in the channel.
+        voice_events = Gtk.EventBox()
+        voice_events.add(voice_text)
+        voice_events.connect("button-press-event",
+                             lambda _w, e: e.button == 1 and (self._toggle_voice_people() or True))
+        voice_events.connect("realize", lambda w: w.get_window().set_cursor(
+            Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
+        voice_box.pack_start(voice_events, False, True, 0)
+        self.voice_pop = Gtk.Popover(relative_to=voice_events, position=Gtk.PositionType.TOP, modal=True)
+        add_class(self.voice_pop, "voice-pop")
+        pop_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin=10)
+        self.voice_pop_title = label("", "voice-pop-title", ellipsize=True)
+        self.voice_people = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        pop_box.pack_start(self.voice_pop_title, False, False, 0)
+        pop_box.pack_start(self.voice_people, False, False, 0)
+        self.voice_pop.add(pop_box)
+        pop_box.show_all()
+        # Disconnect while you're in a call; otherwise "Join <channel>" for a highlighted (or open) voice channel.
+        self.call_btn, self.call_text = self._keyed_button("Disconnect", "Ctrl+Shift+D", "voice",
+                                                           self._call_button_pressed)
+        self.call_text.set_ellipsize(Pango.EllipsizeMode.END)
+        self.call_text.set_max_width_chars(20)
+        self.call_btn.show_all()
+        self.call_btn.set_no_show_all(True)
+        self.call_btn.hide()
+        voice_box.pack_start(self.call_btn, False, False, 0)
         bar.pack_start(voice_box, True, True, 0)
         main.pack_start(bar, False, False, 0)
         self.bottom_rows = Gtk.SizeGroup(mode=Gtk.SizeGroupMode.VERTICAL)  # user panel and bottom bar line up
@@ -408,7 +430,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         outer.show_all()
 
     def _keyed_button(self, text, keys, css_class, on_click):
-        """A button with its keyboard shortcut shown on it (Mute, Deafen, Disconnect, 😀, GIF)."""
+        """A button with its keyboard shortcut shown on it (Mute, Deafen, Join / Disconnect, 😀, GIF)."""
         btn = add_class(Gtk.Button(), css_class)
         btn.set_can_focus(False)
         content = Gtk.Box(spacing=8)
@@ -699,6 +721,9 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             elif name in ("Left", "Right"):
                 self.viewer.step(-1 if name == "Left" else 1)
             return True  # nothing typed while viewing should land in the reply box behind it
+        if self.voice_pop.get_visible() and name == "Escape":
+            self.voice_pop.popdown()  # Esc closes the pop-up, not the whole panel
+            return True
         if self.help.get_visible():
             self.help.popdown()
             if name in ("F1", "Escape"):
@@ -714,7 +739,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
             elif lower == "m":
                 self._voice("toggleMute")
             elif lower == "d" and event.state & Gdk.ModifierType.SHIFT_MASK:
-                self._disconnect_voice()
+                self._call_button_pressed()
             elif lower == "d":
                 self._voice("toggleDeaf")
             elif name == "Down" and event.state & Gdk.ModifierType.SHIFT_MASK:
@@ -829,18 +854,43 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         set_class(self.mute_btn, "on", v["mute"])
         self.deaf_text.set_text("Undeafen" if v["deaf"] else "Deafen")
         set_class(self.deaf_btn, "on", v["deaf"])
-        self.voice_label.set_text("Voice connected" if v["channel"] else "Not in voice")
+        self.voice_label.set_text("Voice connected ▾" if v["channel"] else "Not in voice")
         set_class(self.voice_label, "connected", bool(v["channel"]))
         self.voice_channel.set_text(f"🔊 {v['channel']}" if v["channel"] else "")
         self.voice_channel.set_visible(bool(v["channel"]))
         if v.get("me") and v["me"] != self.me:
             self.me = v["me"]
             self._show_me()
-        self.disconnect_btn.set_visible(bool(v["channel"]))
+        self._update_call_button()
+        if not v["channel"]:
+            self.voice_pop.popdown()
+        elif self.voice_pop.get_visible():
+            self._show_voice_people()  # live: who's speaking, muted, joining, leaving
         # Just after you pick a status, Discord's answer may still be the old one; trust the button a moment.
         settled = time.monotonic() > self.status_set_at + VOICE_SETTLE_SECONDS
         if v.get("status") and (settled or v["status"] == self.status):
             self._show_status(v["status"])
+
+    # ---------- who's in your voice channel ----------
+
+    def _toggle_voice_people(self):
+        if self.voice_pop.get_visible():
+            self.voice_pop.popdown()
+        elif self.voice_state.get("channel"):
+            self._show_voice_people()
+            self.voice_pop.popup()
+
+    def _show_voice_people(self):
+        """The pop-up's list: everyone in the channel, a green ring on whoever is speaking, muted / deafened."""
+        v = self.voice_state
+        self.voice_pop_title.set_text(f"🔊 {v.get('channel') or ''}")
+        for child in self.voice_people.get_children():
+            child.destroy()
+        for person in v.get("members") or []:
+            self.voice_people.pack_start(voice_person(self.images, person), False, False, 0)
+        if not v.get("members"):
+            self.voice_people.pack_start(label("Just you", "voice-state"), False, False, 0)
+        self.voice_people.show_all()
 
     # ---------- status / leaving voice ----------
 
@@ -870,6 +920,37 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin):
         self._show_status(status)  # at once; the next voice refresh confirms it
         self.status_set_at = time.monotonic()
         self._call("setStatus", status, on_err=self._show_error)
+
+    # ---------- joining / leaving voice ----------
+
+    def _voice_target(self):
+        """The voice channel Join would join: the highlighted one, else the one whose text chat is open."""
+        row = self._highlighted()
+        if row is not None and row.data and row.data.get("voice"):
+            return row.data
+        return next((c for c in self.channels if c.get("voice") and c["id"] == self.channel_id), None)
+
+    def _update_call_button(self):
+        in_call = bool(self.voice_state.get("channel"))
+        target = None if in_call else self._voice_target()
+        self.call_text.set_text(f"Join {target['name']}" if target else "Disconnect")
+        set_class(self.call_btn, "join", bool(target))
+        self.call_btn.set_visible(in_call or bool(target))
+
+    def _call_button_pressed(self):
+        """The button or Ctrl+Shift+D: leave the call you're in, or join the highlighted voice channel."""
+        if self.voice_state.get("channel"):
+            self._disconnect_voice()
+        elif target := self._voice_target():
+            self._join_voice(target)
+
+    def _join_voice(self, channel):
+        if not self.win.get_visible():
+            return
+        self._on_voice(dict(self.voice_state, channel=channel["name"]))
+        self.voice_pressed_at = time.monotonic()
+        self._call("joinVoice", channel["id"], on_err=self._show_error)
+        GLib.timeout_add(int(VOICE_SETTLE_SECONDS * 1000) + 100, self._refresh_voice, False)
 
     def _disconnect_voice(self):
         if not self.win.get_visible() or not self.voice_state.get("channel"):

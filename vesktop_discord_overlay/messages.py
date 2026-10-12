@@ -57,8 +57,10 @@ class MessagesMixin:
             self._show_chat_pane()
         else:
             self._render_info("Loading…")
+        self.typing_text = ""
         self.typing.set_text("")
         self._update_draft_marks()
+        self._update_call_button()  # a voice channel's chat: Join it from the bottom bar
         self._load_messages()
 
     def _close_conversation(self):
@@ -73,6 +75,7 @@ class MessagesMixin:
         self.jump_target = None
         self.reply.set_text("")
         self._update_draft_marks()
+        self._update_call_button()
         self._show_empty()
 
     def _show_empty(self):
@@ -502,7 +505,25 @@ class MessagesMixin:
         self.header_name.set_text(name)
         self.header_place.set_text(place)
         self.header_avatar.rounded_square = rounded
-        self.header_avatar.set(icon, name.lstrip("#@")[:1].upper())
+        self.header_avatar.set(icon, name.lstrip("#@🔊 ")[:1].upper(), self._friend_status())
+        self._update_header_line()
+
+    def _friend_card(self):
+        """The open DM's card in the Friends list (None for server channels)."""
+        return next((f for f in self.friends if f["id"] == self.channel_id), None) if self.channel_id else None
+
+    def _friend_status(self):
+        """The online status of the friend in the open DM (None for group DMs and server channels), as the
+        Friends list knows it, so the header's picture shows the same dot as the list, like Discord."""
+        card = self._friend_card()
+        return card.get("status") if card else None
+
+    def _update_header_status(self):
+        """After the lists refresh (statuses change live): keep the open DM's dot in the header current."""
+        if self.channel_id:
+            avatar = self.header_avatar
+            avatar.set(avatar.url, avatar.fallback, self._friend_status())
+            self._update_header_line()  # (their custom status / activity may have changed too)
 
     def _set_typing(self, names):
         if not names:
@@ -513,7 +534,17 @@ class MessagesMixin:
             text = f"{', '.join(names[:-1])} and {names[-1]} are typing…"
         else:
             text = "Several people are typing…"
-        self.typing.set_text(text)
+        self.typing_text = text
+        self._update_header_line()
+
+    def _update_header_line(self):
+        """The line under the chat's name: "… is typing" while someone types, otherwise (in a DM) the friend's
+        custom status or activity, like Discord."""
+        card = self._friend_card()
+        activity = (card or {}).get("activity") or ""
+        typing = self.typing_text
+        self.typing.set_text(typing or activity)
+        set_class(self.typing, "activity", not typing and bool(activity))
 
     def _keep_bottom(self, adj):
         if self.anchor and time.monotonic() < self.anchor[2]:

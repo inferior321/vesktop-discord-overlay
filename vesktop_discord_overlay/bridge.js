@@ -14,6 +14,7 @@
     const Parser = find("parse", "parsePreprocessor");
     const Typing = find("startTyping", "stopTyping");
     const VoiceChannels = find("disconnect", "selectVoiceChannel");
+    const Speaking = find("isSpeaking", "getSpeakingDuration") ?? find("isSpeaking");
     let StatusSetting = null;
     try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
     // Discord's markdown parser, with the options its own message list uses.
@@ -23,6 +24,7 @@
     const CHAT_INTENTION = 3; // EmojiIntention.CHAT
 
     const TEXT_TYPES = new Set([0, 5]); // GUILD_TEXT, GUILD_ANNOUNCEMENT
+    const VOICE_TYPES = new Set([2, 13]); // GUILD_VOICE, GUILD_STAGE_VOICE
     const DM = 1, GROUP_DM = 3;
     const DISCORD_EPOCH = 1420070400000;
     // Tunables for this side (the Python settings live in config.py).
@@ -556,12 +558,45 @@
     } catch { liveUpdatesOk = false; }
 
     // Mute / deafen, the voice channel you're in, your status, and you (for the user panel).
+    // What a friend is up to, as Discord shows it: their custom status if they set one ("🍕 brb dinner"),
+    // otherwise their activity ("Playing Valorant", "Listening to Spotify"), otherwise null.
+    const ACTIVITY_VERBS = { 0: "Playing", 1: "Streaming", 2: "Listening to", 3: "Watching", 5: "Competing in" };
+    function activityText(userId) {
+        const acts = C.PresenceStore.getActivities?.(userId) ?? [];
+        const custom = acts.find(a => a.type === 4);
+        if (custom && (custom.state || custom.emoji?.name)) {
+            const emoji = custom.emoji && !custom.emoji.id ? custom.emoji.name : ""; // (server emoji: left out)
+            const text = `${emoji} ${custom.state ?? ""}`.trim();
+            if (text) return text;
+        }
+        const act = acts.find(a => a.type !== 4 && a.name);
+        return act ? `${ACTIVITY_VERBS[act.type] ?? "Playing"} ${act.name}` : null;
+    }
+
+    // The people in your voice channel: who's speaking, who's muted or deafened.
+    function voiceMembers(vc) {
+        const states = Object.values(C.VoiceStateStore?.getVoiceStatesForChannel?.(vc.id) ?? {});
+        return states.map(s => {
+            const u = C.UserStore.getUser(s.userId);
+            return {
+                id: s.userId,
+                name: u ? userName(u, vc.guild_id) : "Someone",
+                avatar: u ? absolute(u.getAvatarURL(vc.guild_id, ICON_SIZE, false)) : null,
+                speaking: !!Speaking?.isSpeaking?.(s.userId),
+                mute: !!(s.selfMute || s.mute),
+                deaf: !!(s.selfDeaf || s.deaf),
+                me: s.userId === myId(),
+            };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     function voiceState() {
         const vc = C.ChannelStore.getChannel(C.SelectedChannelStore.getVoiceChannelId());
         return {
             mute: C.MediaEngineStore.isSelfMute(),
             deaf: C.MediaEngineStore.isSelfDeaf(),
             channel: vc ? channelName(vc) : null,
+            members: vc ? voiceMembers(vc) : [],
             status: StatusSetting?.getSetting() ?? null, // online | idle | dnd | invisible
             me: (u => ({ name: userName(u), avatar: absolute(u.getAvatarURL(undefined, ICON_SIZE, false)) }))(
                 C.UserStore.getCurrentUser()),
@@ -578,11 +613,24 @@
         lastVoice = json;
         window.__vesktopOverlayEvent?.(json);
     }
-    const voiceStores = [C.MediaEngineStore, C.SelectedChannelStore, C.UserSettingsProtoStore].filter(Boolean);
+    const voiceStores = [C.MediaEngineStore, C.SelectedChannelStore, C.UserSettingsProtoStore, C.VoiceStateStore,
+        Speaking].filter(store => store?.addChangeListener);
+    // Someone joined, left, muted or started speaking in a voice channel of the server whose channels are open:
+    // re-read the list. (Only that server is checked, so other servers' voice traffic costs nothing.)
+    let watchedGuild = null, lastVoiceList = "";
+    function voiceListChanged() {
+        if (!watchedGuild) return;
+        let sig;
+        try { sig = JSON.stringify(guildVoiceChannels(watchedGuild).map(ch => [ch.id, voiceMembers(ch)])); } catch { return; }
+        if (sig === lastVoiceList) return;
+        lastVoiceList = sig;
+        listsChanged();
+    }
+    const onVoiceChange = () => { pushVoice(); voiceListChanged(); };
     window.__vesktopOverlayVoiceUnsub?.();
     try {
-        for (const store of voiceStores) store.addChangeListener(pushVoice);
-        window.__vesktopOverlayVoiceUnsub = () => voiceStores.forEach(store => store.removeChangeListener(pushVoice));
+        for (const store of voiceStores) store.addChangeListener(onVoiceChange);
+        window.__vesktopOverlayVoiceUnsub = () => voiceStores.forEach(store => store.removeChangeListener(onVoiceChange));
     } catch { liveUpdatesOk = false; }
 
     function channelCard(ch, withPreview) {
@@ -600,12 +648,15 @@
 
     const guildTextChannels = gid =>
         (C.GuildChannelStore.getChannels(gid).SELECTABLE ?? []).map(x => x.channel).filter(c => TEXT_TYPES.has(c.type));
+    // In the server's own order (Discord keeps them sorted).
+    const guildVoiceChannels = gid =>
+        (C.GuildChannelStore.getChannels(gid).VOCAL ?? []).map(x => x.channel).filter(c => VOICE_TYPES.has(c.type));
 
     function headerFor(ch) {
         const guild = ch.guild_id ? C.GuildStore.getGuild(ch.guild_id) : null;
         return {
             id: ch.id,
-            name: guild ? "#" + ch.name : channelName(ch),
+            name: guild ? (VOICE_TYPES.has(ch.type) ? "🔊 " : "#") + ch.name : channelName(ch),
             place: guild ? guild.name : ch.type === GROUP_DM ? "Group DM" : "Direct Message",
             icon: channelIcon(ch),
             guildId: guild?.id ?? null,
@@ -624,7 +675,8 @@
                 "typing indicators": [Typing, C.TypingStore],
                 "live updates": [C.FluxDispatcher, liveUpdatesOk || null],
                 "mute and deafen": [Voice, C.MediaEngineStore],
-                "leaving voice": [VoiceChannels, C.SelectedChannelStore],
+                "joining and leaving voice": [VoiceChannels, C.SelectedChannelStore],
+                "who's in voice channels": [C.VoiceStateStore],
                 "your status": [StatusSetting],
                 "opening chats in Vesktop": [C.NavigationRouter, C.ChannelRouter],
             };
@@ -642,6 +694,7 @@
                         ...channelCard(ch, true),
                         icon: channelIcon(ch),
                         status: recipient ? C.PresenceStore.getStatus(recipient) : null,
+                        activity: recipient ? activityText(recipient) : null,
                         typing: Object.keys(C.TypingStore.getTypingUsers(ch.id) ?? {}).some(u => u !== myId()),
                     };
                 });
@@ -674,15 +727,19 @@
             return out;
         },
 
-        // Text channels of one server: unmuted first, then pings, then most recent activity.
+        // One server's channels: text channels (unmuted first, then pings, then most recent activity), then its
+        // voice channels in the server's order, with who's in them.
         channels(guildId) {
+            watchedGuild = guildId;
             const out = guildTextChannels(guildId).map(ch => channelCard(ch, true));
             out.sort((a, b) => a.muted - b.muted || (b.mentions > 0) - (a.mentions > 0) || cmpSnowflake(b.lastId, a.lastId));
+            for (const ch of guildVoiceChannels(guildId)) out.push({ ...channelCard(ch, false), voice: true, members: voiceMembers(ch) });
             return out;
         },
 
         // Everything the sidebar needs in one round trip; channels only when a server is open.
         overview(guildId) {
+            watchedGuild = guildId ?? null;
             return { friends: this.friends(), servers: this.servers(), channels: guildId ? this.channels(guildId) : null };
         },
 
@@ -888,6 +945,7 @@
 
         // Leave the voice channel you're in.
         disconnectVoice() { VoiceChannels.disconnect(); return true; },
+        joinVoice(channelId) { VoiceChannels.selectVoiceChannel(channelId); return true; }, // (switches calls)
 
         // Your status: "online", "idle", "dnd" or "invisible", as if set in Vesktop.
         setStatus(status) { StatusSetting.updateSetting(status); return true; },

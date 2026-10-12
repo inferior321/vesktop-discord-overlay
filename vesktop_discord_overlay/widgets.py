@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 from .gtk import Gdk, Gtk, Pango
-from .config import CARD_AVATAR
+from .config import CARD_AVATAR, VOICE_AVATAR
 from .media import Avatar
 
 def add_class(widget, *names):
@@ -110,6 +110,23 @@ def message_time(ms):
     return t.strftime("%b %-d, %H:%M")
 
 
+def voice_person(images, person):
+    """One person in a voice channel: picture (a green ring while speaking), name, muted / deafened."""
+    row = Gtk.Box(spacing=10)
+    ring = add_class(Gtk.Box(), "voice-face")
+    set_class(ring, "speaking", person["speaking"])
+    face = Avatar(images, VOICE_AVATAR)
+    face.set(person["avatar"], person["name"][:1].upper())
+    ring.add(face)
+    row.pack_start(ring, False, False, 0)
+    name = person["name"] + (" (you)" if person["me"] else "")
+    row.pack_start(label(name, "voice-person", ellipsize=True), True, True, 0)
+    state = "speaking" if person["speaking"] else "deafened" if person["deaf"] else "muted" if person["mute"] else ""
+    if state:
+        row.pack_start(add_class(label(state, "voice-state"), state), False, False, 0)
+    return row
+
+
 class CardRow(Gtk.ListBoxRow):
     """One friend / server / channel entry in the sidebar."""
 
@@ -120,12 +137,14 @@ class CardRow(Gtk.ListBoxRow):
         self.set_can_focus(False)  # keep keyboard focus in the search box
         add_class(self, "card")
 
+        self.images = images
+        self.members = None  # a voice channel's people, as last shown
         box = Gtk.Box(spacing=10)
         if kind == "channel":
             self.avatar = None
-            icon = label("#", "card-hash", xalign=0.5)
-            icon.set_size_request(28, -1)
-            box.pack_start(icon, False, False, 0)
+            self.hash = label("#", "card-hash", xalign=0.5)  # 🔊 for a voice channel
+            self.hash.set_size_request(28, -1)
+            box.pack_start(self.hash, False, False, 0)
         else:
             self.avatar = Avatar(images, CARD_AVATAR, rounded_square=kind == "server")
             box.pack_start(self.avatar, False, False, 0)
@@ -155,7 +174,13 @@ class CardRow(Gtk.ListBoxRow):
         side.pack_start(self.badge, False, False, 0)
         side.pack_start(self.dot, False, False, 0)
         box.pack_start(side, False, False, 0)
-        self.add(box)
+        # A voice channel's people, under it (not rows of their own: the arrows skip them).
+        self.people = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_start=38)
+        self.people.set_no_show_all(True)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        outer.pack_start(box, False, False, 0)
+        outer.pack_start(self.people, False, False, 0)
+        self.add(outer)
 
     def update(self, data):
         self.data = data
@@ -168,7 +193,10 @@ class CardRow(Gtk.ListBoxRow):
             who = "You" if p["self"] else p["author"]
             where = f"#{p['channel']} · " if p.get("channel") else ""
             self.preview.set_text(f"{where}{p['text']}" if p.get("system") else f"{where}{who}: {p['text']}")
-        self.preview.set_visible(bool(p))
+        elif data.get("activity"):  # no message loaded: what they're up to, like Discord's DM list
+            self.preview.set_text(data["activity"])
+        set_class(self.preview, "activity", not p and bool(data.get("activity")))
+        self.preview.set_visible(bool(p) or bool(data.get("activity")))
 
         self.time.set_text(relative_time(data["last"]))
         mentions = data["mentions"]
@@ -176,10 +204,25 @@ class CardRow(Gtk.ListBoxRow):
         self.badge.set_visible(mentions > 0)
         self.dot.set_visible(mentions == 0 and data["unread"] and not data.get("muted", False))
 
+        if self.kind == "channel":
+            self.hash.set_text("🔊" if data.get("voice") else "#")
+            self._show_members(data.get("members") or [])
         if self.avatar:
             fallback = data.get("acronym") or data["name"][:1].upper()
             self.avatar.set(data.get("icon"), fallback, data.get("status"))
             self.avatar.set_typing(bool(data.get("typing")))
+
+    def _show_members(self, members):
+        if members == self.members:
+            return
+        self.members = members
+        for child in self.people.get_children():
+            child.destroy()
+        for person in members:
+            row = voice_person(self.images, person)
+            row.show_all()
+            self.people.pack_start(row, False, False, 0)
+        self.people.set_visible(bool(members))
 
     def set_draft(self, has_draft):
         self.draft.set_visible(has_draft)

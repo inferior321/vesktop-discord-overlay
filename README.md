@@ -15,7 +15,7 @@ client code; it never sees or stores your login token.
 
 - **Friends and Servers** with avatars, online status, unread dots, ping counts and last-message previews
   (for chats Vesktop has loaded: ones you've opened, or with new messages since it started); servers open
-  into their channel lists. Type to search.
+  into their channel lists, with the voice channels last and who's in them (live). Type to search.
 - **Chats** with Discord's formatting (bold, links, mentions, spoilers, code, quotes, lists), server emoji,
   images, GIFs, inline YouTube, forwarded messages, polls, voice messages, bot commands, and Discord's own
   lines for calls, pins and people joining. New messages, edits, deletions and reactions appear the moment they
@@ -24,9 +24,11 @@ client code; it never sees or stores your login token.
   typing, and you see them typing.
 - **Right-click a message** to reply, react, edit or delete your own, copy it or its link, or open it in
   Vesktop. Click a reaction to add or remove yours; click a reply's quote to jump to the original.
-- **Voice and status**: mute, deafen and leave the voice channel from the bottom bar; click your name at the
-  bottom left to set Online / Idle / Do Not Disturb / Invisible. Both stay in sync with changes made in
-  Discord itself, instantly.
+- **Voice and status**: mute, deafen, join and leave voice channels from the bottom bar, and click "Voice
+  connected" to see who's in the call and who's speaking; click your name at the bottom left to set Online /
+  Idle / Do Not Disturb / Invisible. Both stay in sync with changes made in Discord itself, instantly.
+- **Your friends' status**: their online dot, custom status or activity ("Playing Valorant") in the chat
+  header, and in the list where there's no message preview.
 - **Keyboard-first**: the panel opens ready to type in the chat you were in, so replying is Ctrl+Shift+`,
   type, Enter, Esc. Arrow keys and Tab get you everywhere else; Ctrl+← / Ctrl+→ step through the last 25
   chats you opened. Press F1 for the full list.
@@ -45,7 +47,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.1.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.2.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord
   for something when you do something (open a chat, which also marks it read like Discord does; send, react,
@@ -163,7 +165,8 @@ if you want.
 | Right-click a message | Reply, Add reaction, Edit / Delete (yours), Copy text, Copy message link, Open in Vesktop (at that message); with part of its text highlighted, also Copy selection |
 | Right-click a friend, server or channel in the list | Mark as read (a server: all its channels), Open in Vesktop |
 | Ctrl+M / Ctrl+D | Mute / deafen |
-| Ctrl+Shift+D, or **Disconnect** (shown while in voice) | Leave the voice channel |
+| Ctrl+Shift+D, or **Join** / **Disconnect** (bottom right) | Join the highlighted voice channel (or the one whose chat is open); while in a call, leave it |
+| Click **Voice connected ▾** | Who's in your voice channel: speaking, muted, deafened (live); Esc or a click closes it |
 | Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible |
 | ✎ beside a chat in the list | You left an unsent draft there |
 | F1, or hover the **?** in the bottom-right corner | List of all these shortcuts |
@@ -223,7 +226,7 @@ in `~/.config/vesktop-discord-overlay/state.json`.
 | `vesktop_discord_overlay/shortcuts.py` | The shortcut list behind the **?** / F1 |
 | `vesktop_discord_overlay/widgets.py` | Small GTK helpers, menus and the sidebar cards |
 | `vesktop_discord_overlay/bridge.py` | DevTools connection to Vesktop |
-| `vesktop_discord_overlay/bridge.js` | Runs inside Vesktop: reads Discord's stores, sends, edits and reacts, fetches emoji/GIFs, reports new messages and typing as they happen |
+| `vesktop_discord_overlay/bridge.js` | Runs inside Vesktop: reads Discord's stores, sends, edits and reacts, joins and leaves voice, fetches emoji/GIFs, reports new messages, typing and voice changes as they happen |
 | `vesktop_discord_overlay/hotkey.py` | Global hotkey (X11 key grab) |
 | `vesktop_discord_overlay/system.py` | Process / window helpers: Vesktop start/quit, debug port check, xdotool |
 | `vesktop_discord_overlay/preflight.py` | Startup checks (Wayland, missing packages) with plain-language messages |

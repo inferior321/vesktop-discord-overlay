@@ -10,4 +10,4 @@ fi
 trap 'kill $WM $SERVER 2>/dev/null' EXIT
 sleep 2
 command -v metacity >/dev/null && { DISPLAY=$DISPLAY_NO metacity --replace >/dev/null 2>&1 & WM=$!; sleep 1; }
-DISPLAY=$DISPLAY_NO NO_AT_BRIDGE=1 timeout 60 python3 make_screenshot.py 2>&1 | grep -v -e DRI2 -e "overlay running"
+DISPLAY=$DISPLAY_NO NO_AT_BRIDGE=1 timeout 60 python3 make_screenshot.py "$@" 2>&1 | grep -v -e DRI2 -e "overlay running"

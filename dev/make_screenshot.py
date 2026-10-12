@@ -1,5 +1,7 @@
 """Make the README screenshot (assets/screenshot.png) with the fake Vesktop: invented people, conversation, avatars
-and images, nothing real. Run it through dev/screenshot.sh, which provides a private display."""
+and images, nothing real. Run it through dev/screenshot.sh, which provides a private display.
+
+With an output path as argument, saves there instead, with the voice pop-up open (for reviewing it)."""
 
 import os
 import sys
@@ -12,7 +14,9 @@ from PIL import Image, ImageDraw, ImageFilter
 import fakebridge as fb
 import vesktop_discord_overlay.overlay as main
 
-OUT = Path(__file__).resolve().parent.parent / "assets" / "screenshot.png"
+README_SHOT = Path(__file__).resolve().parent.parent / "assets" / "screenshot.png"
+OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else README_SHOT
+VOICE_POPUP = len(sys.argv) > 1
 media_dir = Path(tempfile.mkdtemp(prefix="vdo-shot-"))
 
 
@@ -75,25 +79,31 @@ SQUAD = avatar("squad", (255, 160, 80), (210, 70, 90), "square")
 RAID = avatar("raid", (90, 90, 110), (40, 40, 60), "star")
 
 
-def friend(cid, name, preview, minutes_ago, status="online", unread=False, mentions=0, typing=False, by=None):
+def friend(cid, name, preview, minutes_ago, status="online", unread=False, mentions=0, typing=False, by=None,
+           activity=None):
     card = fb.card(cid, name, unread=unread, mentions=mentions, status=status)
     card.update(icon=PEOPLE.get(name, SQUAD), typing=typing, last=time.time() * 1000 - minutes_ago * 60_000,
-                preview={"author": by or name, "self": by == "You", "text": preview})
+                preview={"author": by or name, "self": by == "You", "text": preview} if preview else None,
+                activity=activity)
     return card
 
 
 fb.FRIENDS[:] = [
-    friend("F1", "Maya", "gg everyone 😄", 1),
+    friend("F1", "Maya", "gg everyone 😄", 1, activity="🎮 ranked grind tonight"),
     friend("F2", "Jordan", "omw, 5 min", 6, status="idle", unread=True, mentions=2, typing=True),
     friend("F3", "Weekend Squad", "who's bringing snacks?", 18, status=None, unread=True, by="Priya"),
     friend("F4", "Priya", "that boss fight was unreal", 45, status="dnd", by="You"),
     friend("F5", "Sam", "sent the clip 🎬", 120, status="offline"),
     friend("F6", "Chris", "ok see you saturday", 300),
     friend("F7", "Nina", "lol same", 1440, status="idle"),
-    friend("F8", "Theo", "thanks!", 2880, status="offline"),
+    friend("F8", "Theo", None, 2880, activity="Playing Minecraft"),
 ]
 fb.SERVERS[:] = [dict(fb.card("S1", "Weekend Raid", unread=True), icon=RAID)]
-fb.VOICE.update(channel="Squad Lounge", status="online", me={"name": "Kai", "avatar": PEOPLE["Kai"]})
+fb.VOICE.update(channel="Squad Lounge", status="online", me={"name": "Kai", "avatar": PEOPLE["Kai"]}, members=[
+    dict(id="m", name="Maya", avatar=PEOPLE["Maya"], speaking=True, mute=False, deaf=False, me=False),
+    dict(id="j", name="Jordan", avatar=PEOPLE["Jordan"], speaking=False, mute=False, deaf=False, me=False),
+    dict(id="k", name="Kai", avatar=PEOPLE["Kai"], speaking=False, mute=False, deaf=False, me=True),
+    dict(id="s", name="Sam", avatar=PEOPLE["Sam"], speaking=False, mute=True, deaf=False, me=False)])
 
 T = fb.text
 MAP = scenery()
@@ -149,5 +159,6 @@ def wait(o):
     pass
 
 
-fb.run_steps(main, [wait, wait, wait, lambda o: o._focus_list(), wait, shoot], interval_ms=800)
+open_popup = [lambda o: o._toggle_voice_people(), wait] if VOICE_POPUP else []
+fb.run_steps(main, [wait, wait, wait, lambda o: o._focus_list(), wait] + open_popup + [shoot], interval_ms=800)
 sys.exit(0)

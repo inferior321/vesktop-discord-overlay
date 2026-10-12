@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+
+- Voice channels in each server's channel list: after the text channels, under a VOICE heading, in the
+  server's own order, with who's in them (picture, a green ring while speaking, muted / deafened), live.
+  → or a click opens a voice channel's text chat.
+- Joining voice: with a voice channel highlighted (or its chat open), the bottom-right button becomes a green
+  **Join <channel>**; it or Ctrl+Shift+D joins. In a call it's **Disconnect**, as before.
+- Click **Voice connected ▾** to see who's in your call and who's speaking, live.
+- Your friends' status: their online dot on their picture in the chat header, and their custom status or
+  activity ("Playing Valorant") under their name there, and in the list for chats with no message loaded.
+
 ## 1.1.0
 
 - Ctrl+Shift+← (remove the open chat from the Ctrl+← / Ctrl+→ history) now moves on to the next chat, like

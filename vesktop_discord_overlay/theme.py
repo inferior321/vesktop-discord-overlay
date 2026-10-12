@@ -67,6 +67,7 @@ list.cards:focus row.card:selected {{ background: {SELECTED_FOCUS}; box-shadow: 
 .card-preview {{ color: #949ba4; font-size: {pt(9)}; }}
 .card-time {{ color: #6d6f78; font-size: {pt(8)}; }}
 .card-hash {{ color: #80848e; font-size: {pt(16)}; }}
+.list-heading {{ color: #949ba4; font-size: {pt(8)}; font-weight: 700; padding: 10px 16px 4px; }}
 .badge {{ background: #f23f43; color: white; border-radius: 9px; padding: 0 6px; font-size: {pt(8)}; font-weight: 700; }}
 .dot {{ color: #f2f3f5; font-size: {pt(7)}; }}
 
@@ -74,6 +75,8 @@ list.cards:focus row.card:selected {{ background: {SELECTED_FOCUS}; box-shadow: 
 .header-name {{ color: #f2f3f5; font-weight: 700; font-size: {pt(12)}; }}
 .header-place {{ color: #949ba4; font-size: {pt(9)}; }}
 .typing {{ color: #949ba4; font-size: {pt(9)}; font-style: italic; }}
+.typing.activity {{ font-style: normal; }}
+.card-preview.activity {{ color: #6d6f78; }}
 
 .msg-author {{ color: #f2f3f5; font-weight: 600; }}
 .msg-author.self {{ color: #00a8fc; }}
@@ -175,9 +178,20 @@ button.user-panel:hover {{ background: {HOVER}; }}
            font-size: {pt(8)}; font-family: monospace; }}
 .keycap {{ border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: none; }}  /* GTK themes add a bright outline */
 button.voice.on .keycap {{ color: white; }}
+button.voice.join {{ background: #248046; color: white; }}
+button.voice.join:hover {{ background: #1a6334; }}
+button.voice.join .keycap {{ color: white; }}
 .voice-label {{ color: #949ba4; font-size: {pt(8)}; }}
 .voice-label.connected {{ color: #23a55a; font-weight: 700; }}
 .voice-channel {{ color: #b5bac1; font-size: {pt(8)}; }}
+popover.voice-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
+.voice-pop-title {{ color: #23a55a; font-weight: 700; }}
+.voice-face {{ border: 2px solid transparent; border-radius: 999px; padding: 1px; }}
+.voice-face.speaking {{ border-color: #23a55a; }}
+.voice-person {{ color: #dbdee1; }}
+.voice-state {{ color: #949ba4; font-size: {pt(8)}; }}
+.voice-state.speaking {{ color: #23a55a; }}
+.voice-state.muted, .voice-state.deafened {{ color: #f23f43; }}
 .error-text {{ color: #f23f43; font-size: {pt(8)}; }}
 .error-text.note {{ color: #949ba4; }}
 .help-icon {{ color: #949ba4; background: {INPUT}; border-radius: 9px; font-weight: 700; font-size: {pt(9)};

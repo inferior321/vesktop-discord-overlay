@@ -39,7 +39,7 @@ SERVERS = [card("S1", "Fake Server", unread=True), card("S2", "Other Server")]
 CHANNELS = [card("C1", "general"), card("C2", "memes", unread=True)]
 MESSAGES = [msg(i, f"message number {i}") for i in range(40)]
 OLDER = []  # what scrolling up loads, oldest first (served in batches like Discord)
-VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online",
+VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online", "members": [],
          "me": {"name": "You", "avatar": None}}
 CALLS = []  # (method, args) of every call the overlay made
 SAVED_STATE = {}  # what state.json holds when the overlay starts (e.g. a remembered chat history)

@@ -276,13 +276,51 @@ def status(o):
     o._set_status("dnd")
     assert calls("setStatus")[-1] == ("dnd",) and o.status == "dnd"
     fb.VOICE["channel"] = "General"
+    fb.VOICE["members"] = [
+        dict(id="u1", name="Friend 1", avatar=None, speaking=True, mute=False, deaf=False, me=False),
+        dict(id="u2", name="Friend 2", avatar=None, speaking=False, mute=True, deaf=False, me=False),
+        dict(id="me", name="You", avatar=None, speaking=False, mute=False, deaf=False, me=True)]
     o._refresh_voice(skip_if_busy=False)
 
 
+def voice_people(o):
+    o._toggle_voice_people()
+    assert o.voice_pop.get_visible(), "clicking Voice connected opens who's there"
+
+    def texts(widget):
+        own = [widget.get_text()] if isinstance(widget, main.Gtk.Label) else []
+        kids = widget.get_children() if isinstance(widget, main.Gtk.Container) else []
+        return own + [t for kid in kids for t in texts(kid)]
+    rows = [" ".join(texts(row)) for row in o.voice_people.get_children()]
+    rings = [row.get_children()[0].get_style_context().has_class("speaking")
+             for row in o.voice_people.get_children()]
+    print(f"voice pop-up: {o.voice_pop_title.get_text()!r}, {rows}, speaking rings {rings}", flush=True)
+    assert rows == ["Friend 1 speaking", "Friend 2 muted", "You (you)"] and rings == [True, False, False]
+    fb.VOICE["members"][0]["speaking"] = False  # Friend 1 stops talking: the pop-up follows live
+    fb.push_voice()
+
+
+def voice_people_live(o):
+    first = o.voice_people.get_children()[0]
+    assert not first.get_children()[0].get_style_context().has_class("speaking"), "speaking ring follows live"
+    o._on_key(o.win, fake_escape())
+
+
+def voice_people_closed(o):
+    assert not o.voice_pop.get_visible() and o.win.get_visible(), "Esc closes the pop-up, not the panel"
+    print("pop-up follows who's speaking live; Esc closes just the pop-up", flush=True)
+
+
+def fake_escape():
+    event = main.Gdk.Event.new(main.Gdk.EventType.KEY_PRESS)
+    event.keyval = main.Gdk.KEY_Escape
+    return event
+
+
 def in_voice(o):
-    assert o.disconnect_btn.get_visible(), "Disconnect shown in voice"
+    assert o.call_btn.get_visible(), "Disconnect shown in voice"
     o._disconnect_voice()
-    assert not o.disconnect_btn.get_visible() and calls("disconnectVoice")
+    assert not o.call_btn.get_visible() and calls("disconnectVoice")
     print("status set to dnd; Disconnect shown in voice and leaves it", flush=True)
 
 
@@ -291,4 +329,5 @@ fb.run_steps(main, [health, toggle_on, wait, toggled_on, wait, toggled_off, open
                     wait, deleted, jump, wait, jumped, text_menu, picker_open, picker_click_inside,
                     picker_switched, picker_clicked_away, reaction_picker_open, reaction_picker_closed, ctrl_e,
                     ctrl_e_opened, ctrl_g_switched, ctrl_g_closed, reaction_ignores_ctrl_g, drafts, status,
-                    wait, in_voice], interval_ms=500)
+                    wait, voice_people, wait, voice_people_live, wait, voice_people_closed, in_voice],
+             interval_ms=500)

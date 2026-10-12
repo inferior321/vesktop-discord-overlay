@@ -81,6 +81,42 @@ def lists_refreshed(o):
     assert reads == 1 and row.data["status"] == "offline", "one prompt refresh for the whole burst"
 
 
+def open_friend(o):
+    o._open_conversation("F5")  # Friend 5, who just went offline
+
+
+def header_shows_status(o):
+    assert o.header_avatar.status == "offline", o.header_avatar.status
+    fb.FRIENDS[4]["status"] = "dnd"  # now Do Not Disturb
+    fb.push_lists()
+
+
+def header_follows(o):
+    dot = o.header_avatar.status
+    print(f"open DM with Friend 5: header picture's status dot went offline -> {dot}", flush=True)
+    assert o.header_avatar.status == "dnd", "the header's dot changes live, like the list's"
+
+
+def activity_set(o):
+    fb.FRIENDS[4]["activity"] = "🍕 brb dinner"  # Friend 5 sets a custom status...
+    fb.FRIENDS[6].update(preview=None, activity="Playing Valorant")  # ...Friend 7 (no message loaded) plays
+    fb.push_lists()
+
+
+def activity_shown(o):
+    header = o.typing.get_text()
+    row = o.row_cache[("friend", "F7")]
+    listed = row.preview.get_text() if row.preview.get_visible() else ""
+    dim = row.preview.get_style_context().has_class("activity")
+    print(f"header under Friend 5's name: {header!r}; list line for Friend 7 (no preview): {listed!r} (dim {dim})",
+          flush=True)
+    assert header == "🍕 brb dinner" and listed == "Playing Valorant" and dim
+    o._set_typing(["Friend 5"])  # typing takes the line over...
+    assert o.typing.get_text() == "Friend 5 is typing…"
+    o._set_typing([])  # ...and gives it back
+    assert o.typing.get_text() == "🍕 brb dinner"
+
+
 def muted_elsewhere(o):
     fb.VOICE["mute"] = True  # muted with Discord's own button
     fb.push_voice()
@@ -107,4 +143,6 @@ def hidden(o):
 
 fb.run_steps(main, [arrive, arrive_mid_read, wait, wait, wait, both_shown,
                     other_chat, wait, not_reread, wait, hidden, friend_online, wait, wait, wait, wait,
-                    lists_refreshed, muted_elsewhere, wait, panel_caught_up, wait, unmuted], interval_ms=300)
+                    lists_refreshed, open_friend, wait, header_shows_status, wait, wait, wait, wait,
+                    header_follows, activity_set, wait, wait, wait, wait, activity_shown, muted_elsewhere, wait,
+                    panel_caught_up, wait, unmuted], interval_ms=300)
