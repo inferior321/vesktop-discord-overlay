@@ -45,7 +45,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.0.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.1.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord
   for something when you do something (open a chat, which also marks it read like Discord does; send, react,
@@ -141,8 +141,8 @@ if you want.
 | Ctrl+Tab | Switch between the Friends and Servers tabs |
 | Ctrl+← / Ctrl+→ | Step back / forward through the last 25 chats you opened, ready to type (wraps around; the sidebar stays put). Remembered across restarts |
 | Ctrl+Shift+→ | Show the open chat in the sidebar (Friends, or its server's channels), highlighted |
-| Ctrl+Shift+← | Remove the open chat from that history and close it (it comes back if you open it again) |
-| Ctrl+Shift+↓ | Clear the whole history (asks first: Enter clears, Esc cancels) |
+| Ctrl+Shift+← | Remove the open chat from that history and go to the next one, like closing a browser tab (the empty screen if it was the only one; it comes back if you open it again) |
+| Ctrl+Shift+↓ | Clear the whole history and close the chat (asks first: Enter clears, Esc cancels) |
 | Ctrl+↑ / Ctrl+↓ | Panel opacity, in 5% steps (30% minimum); remembered between runs |
 | ↑ / ↓ | Move through the list (↑ at the top goes to the search box) |
 | → | Go in: server → its channels; friend or channel → open the chat, ready to type in its reply box |
@@ -215,7 +215,7 @@ in `~/.config/vesktop-discord-overlay/state.json`.
 | `vesktop_discord_overlay/sidebar.py` | Friends / Servers tabs, search, the list and its keys |
 | `vesktop_discord_overlay/messages.py` | The open chat: drawing messages (only what changed), scrolling, older history, media |
 | `vesktop_discord_overlay/compose.py` | The reply box: replies, edits, deleting, pasted images, sending, reactions, pickers |
-| `vesktop_discord_overlay/history.py` | Chat history (Ctrl+← / → and Ctrl+Shift+← / →) |
+| `vesktop_discord_overlay/history.py` | Chat history (Ctrl+← / →, Ctrl+Shift+← / → / ↓) |
 | `vesktop_discord_overlay/pickers.py` | Emoji / GIF pickers and `:` autocomplete |
 | `vesktop_discord_overlay/media.py` | Image / GIF / video download cache and the widgets that draw them |
 | `vesktop_discord_overlay/viewer.py` | The full-panel image / GIF viewer |

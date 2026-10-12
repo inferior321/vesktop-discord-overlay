@@ -30,9 +30,9 @@ Panel keys:
     Ctrl+Shift+D     leave the voice channel (also the Disconnect button, shown while in voice)
     Ctrl+Up / Down   panel opacity (5% steps, 30% minimum, remembered)
     Ctrl+Left/Right  previous / next chat you opened, ready to type (last 25, wraps around)
-    Ctrl+Shift+Left  remove the open chat from that history and close it
+    Ctrl+Shift+Left  remove the open chat from that history and go to the next one (like closing a tab)
     Ctrl+Shift+Right show the open chat in the sidebar (Friends or its server), highlighted
-    Ctrl+Shift+Down  clear that history (asks first); the history is remembered across restarts
+    Ctrl+Shift+Down  clear that history and close the chat (asks first); the history is remembered across restarts
     F1 / hover ?     list of all shortcuts
     Ctrl+Shift+`     toggle the panel (opens ready to type in the open chat)
     click an image   open it full size (or reveal a spoiler); clicking outside the panel closes it

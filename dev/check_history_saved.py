@@ -63,13 +63,39 @@ def ask_again(o):
 
 
 def cleared(o):
-    print(f"Enter clears: history {ids(o)}, saved {saved()}", flush=True)
+    focus = "list" if o.win.get_focus() is o.listbox else "elsewhere"
+    print(f"Enter clears: history {ids(o)}, saved {saved()}, open chat {o.channel_id}, cursor in the {focus}",
+          flush=True)
     assert ids(o) == [] and saved() == [] and not o.clear_note.get_visible()
+    assert o.channel_id is None and focus == "list", "clearing everything leaves the empty pane"
+    for chat in ("F2", "F3", "F4"):  # a fresh history: F2, F3, F4 (F4 open, the most recent)
+        o._open_conversation(chat)
+    o._step_history(-1)  # to F3, in the middle
+    keys("ctrl+shift+Left")
+
+
+def removed_middle(o):
+    print(f"Ctrl+Shift+Left on F3 (middle): now in {o.channel_id}, history {ids(o)}", flush=True)
+    assert ids(o) == ["F2", "F4"] and o.channel_id == "F4", "the more recent chat opens, like closing a tab"
+    assert o.win.get_focus() is o.reply, "ready to type"
+    keys("ctrl+shift+Left")
+
+
+def removed_newest(o):
+    print(f"Ctrl+Shift+Left on F4 (most recent): now in {o.channel_id}, history {ids(o)}", flush=True)
+    assert ids(o) == ["F2"] and o.channel_id == "F2", "the one before opens when there's nothing more recent"
+    keys("ctrl+shift+Left")
+
+
+def removed_last(o):
+    print(f"Ctrl+Shift+Left on F2 (the only one): open chat {o.channel_id}, history {ids(o)}", flush=True)
+    assert ids(o) == [] and o.channel_id is None, "nothing left: the empty pane"
 
 
 def wait(o):
     pass
 
 
-fb.run_steps(main, [wait, loaded, back_twice, wait, skipped, wait, asked, cancelled, wait, ask_again, wait, cleared],
+fb.run_steps(main, [wait, loaded, back_twice, wait, skipped, wait, asked, cancelled, wait, ask_again, wait,
+                    cleared, wait, removed_middle, wait, removed_newest, wait, removed_last],
              interval_ms=600)

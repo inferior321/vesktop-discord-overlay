@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0
+
+- Ctrl+Shift+← (remove the open chat from the Ctrl+← / Ctrl+→ history) now moves on to the next chat, like
+  closing a browser tab: the more recent one, or the one before if it was the most recent; the empty screen
+  only when it was the last one. A note says which chat you're in now.
+- Ctrl+Shift+↓ (clear the whole history) now also closes the open chat, leaving the empty screen with the
+  cursor in the list.
+
 ## 1.0.0
 
 First release.

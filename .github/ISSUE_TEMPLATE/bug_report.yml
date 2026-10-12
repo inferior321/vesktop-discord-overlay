@@ -18,7 +18,7 @@ body:
     attributes:
       label: Overlay version
       description: "`python3 ~/vesktop-discord-overlay/main.py --version`"
-      placeholder: "1.0.0"
+      placeholder: "1.1.0"
     validations:
       required: true
   - type: input

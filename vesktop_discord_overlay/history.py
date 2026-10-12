@@ -1,5 +1,5 @@
-"""Chat history: Ctrl+Left / Ctrl+Right, Ctrl+Shift+Left (prune), Ctrl+Shift+Right (show in sidebar) and
-Ctrl+Shift+Down (clear). Remembered across restarts in state.json."""
+"""Chat history: Ctrl+Left / Ctrl+Right, Ctrl+Shift+Left (remove, then the next), Ctrl+Shift+Right (show in
+sidebar) and Ctrl+Shift+Down (clear). Remembered across restarts in state.json."""
 
 from . import state
 from .config import HISTORY_LENGTH, NOTE_SHOW_MS
@@ -70,18 +70,36 @@ class HistoryMixin:
             self.listbox.grab_focus()
 
     def _prune_history(self):
-        """Ctrl+Shift+Left: drop the open chat from the history and close it ("tidy up")."""
+        """Ctrl+Shift+Left: take the open chat out of the history and move on to the next one, like closing a
+        browser tab: the more recent chat, or the one before if this was the most recent. With nothing left,
+        the empty pane."""
         index = next((i for i, e in enumerate(self.history) if e["id"] == self.channel_id), None)
         if index is None:
+            self._flash("This chat isn't in the history", NOTE_SHOW_MS)
             return
-        name = self.history[index]["name"]
+        name = self.history[index]["name"] or "the chat"
         del self.history[index]
-        self.history_gap = index  # Ctrl+Left / Right continue from here
-        self._close_conversation()
-        self._forget_left_chats()
+        self.history_gap = None
         self._save_history()
-        self.listbox.grab_focus()
-        self._flash(f"Removed {name} from history" if name else "Removed from history", NOTE_SHOW_MS)
+        if not self.history:
+            self.history_pos = -1
+            self._close_conversation()
+            self._forget_left_chats()
+            self._focus_list()
+            self._flash(f"Removed {name} from history", NOTE_SHOW_MS)
+            return
+        self.history_pos = min(index, len(self.history) - 1)
+        self.history_step = 1 if index < len(self.history) else -1  # (if that chat can't open, keep going)
+        entry = self.history[self.history_pos]
+        self._close_picker(focus_reply=False)
+        self._open_conversation(entry["id"], from_history=True)
+        self.open_guild_id = entry["guildId"]
+        self._forget_left_chats()
+        self._focus_reply()
+        self.reply.set_position(-1)
+        where = f"{self.history_pos + 1} / {len(self.history)}"
+        self._flash(f"Removed {name} · now {entry['name']} ({where})" if entry["name"]
+                    else f"Removed {name} ({where})", NOTE_SHOW_MS)
 
     def _forget_left_chats(self):
         """Older messages you scrolled back to, and where you were reading, are kept only for chats still in
@@ -129,8 +147,10 @@ class HistoryMixin:
             return
         self._cancel_clear_history()
         self.history, self.history_pos, self.history_gap = [], -1, None
-        self._forget_left_chats()
         self._save_history()
+        self._close_conversation()  # the empty pane, like closing every tab
+        self._forget_left_chats()
+        self._focus_list()
         self._flash("Chat history cleared", NOTE_SHOW_MS)
 
     def _cancel_clear_history(self):

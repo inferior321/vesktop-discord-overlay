@@ -36,7 +36,7 @@ COLUMNS = [[
     ]),
     ("History", [
         ("Ctrl+← →", "Previous / next chat"),
-        ("Ctrl+Shift+←", "Remove chat from history"),
+        ("Ctrl+Shift+←", "Remove chat, go to the next"),
         ("Ctrl+Shift+→", "Show chat in the list"),
         ("Ctrl+Shift+↓", "Clear history (asks first)"),
     ]),
