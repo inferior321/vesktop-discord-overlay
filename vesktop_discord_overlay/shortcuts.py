@@ -14,7 +14,7 @@ COLUMNS = [[
     ("List", [
         ("↑ ↓", "Move"),
         ("→", "Open and type (server, forum: go in)"),
-        ("←", "Close chat / go back out"),
+        ("←", "Go back out"),
         ("Type", "Search"),
         ("Tab", "List ⇄ reply box"),
     ]),

@@ -344,14 +344,9 @@ class SidebarMixin:
         self.reply.set_position(-1)  # continue any draft at its end
 
     def _back(self):
-        """Go one level up: close the open chat first, then leave the forum, then the server's channel list."""
-        in_this_view = self.channel_id and any(r.data["id"] == self.channel_id for r in self.rows)
-        if in_this_view:
-            highlighted = self._highlighted()
-            self._close_conversation()
-            if highlighted:
-                self._highlight(highlighted)
-        elif self.tab == "servers" and self.forum:
+        """Go one level up: out of the forum, then out of the server. The open chat stays open (browsing back out
+        never closes it; opening another chat replaces it)."""
+        if self.tab == "servers" and self.forum:
             self._leave_forum()
         elif self.tab == "servers" and self.server:
             self._leave_server()

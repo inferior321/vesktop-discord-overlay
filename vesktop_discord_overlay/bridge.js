@@ -759,12 +759,24 @@
         return null; // (directories and such: not shown)
     }
 
+    // Discord loads a server's active threads and forum posts only once you look at that server (its app asks
+    // when you open it). Opening a server or forum in the overlay asks the same way, if it hasn't been yet; they
+    // arrive a moment later as a list change.
+    function ensureThreads(guildId) {
+        if (ActiveThreads?.hasLoaded && !ActiveThreads.hasLoaded(guildId)) {
+            C.FluxDispatcher.dispatch({ type: "GUILD_SUBSCRIPTIONS", guildId });
+            return false;
+        }
+        return true;
+    }
+
     // A forum's posts, most recent activity first: the active ones Vesktop has, plus older ones loaded so far.
     const postsLoaded = (window.__vesktopOverlayPostsLoaded ??= new Set()); // forums whose older posts were asked for
     function forumPosts(forumId) {
         const forum = C.ChannelStore.getChannel(forumId);
         if (!forum) return { posts: [], more: false };
         const gid = forum.guild_id;
+        const activeLoaded = ensureThreads(gid);
         const ids = new Set(Object.keys(ActiveThreads?.getThreadsForParent?.(gid, forumId) ?? {}));
         for (const id of ArchivedThreads?.getThreads?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING) ?? []) ids.add(id);
         const posts = [...ids].map(id => C.ChannelStore.getChannel(id)).filter(Boolean)
@@ -784,7 +796,8 @@
             });
         const more = !postsLoaded.has(forumId)
             || !!ArchivedThreads?.getCanLoadMore?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING);
-        const loading = !!ArchivedThreads?.isLoading?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING);
+        // (Still waiting for the active posts counts as loading too: older ones are asked for only after.)
+        const loading = !activeLoaded || !!ArchivedThreads?.isLoading?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING);
         return { posts, more, loading };
     }
 
@@ -905,6 +918,7 @@
         // that, every channel you can see instead, in the server's order (health() reports it).
         channels(guildId) {
             watchedGuild = guildId;
+            ensureThreads(guildId);
             let rows;
             try { rows = sidebarRows(guildId); } catch { rows = null; }
             if (!rows) {

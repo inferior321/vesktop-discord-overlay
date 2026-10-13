@@ -35,6 +35,8 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
       reply there. ← goes back to the posts, then the channels.
 - [ ] **Mentions:** type `@` and part of a friend's name, pick them, send: it's a real mention (they're
       pinged). In a server, `#` and part of a channel name: a clickable channel link.
+- [ ] **Panel size:** open a busy server's announcement with lots of reactions, and a forum post or channel
+      with a long name: the panel keeps its width (reactions wrap; long names end in "…").
 - [ ] **Read elsewhere:** read a chat on your phone or in Vesktop's window. Its unread dot in the panel clears
       within a second.
 - [ ] **Health:** after starting from the app menu, no "Discord changed something" notification appears.

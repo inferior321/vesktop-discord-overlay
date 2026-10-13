@@ -296,12 +296,12 @@ class MessagesMixin:
                     reply = reply_events
                 col.pack_start(reply, False, False, 0)
             head = Gtk.Box(spacing=8)
-            author = label(m["author"], "msg-author")
+            author = label(m["author"], "msg-author", ellipsize=True)  # (a long name mustn't widen the panel)
             set_class(author, "self", m["self"])
             author.set_valign(Gtk.Align.BASELINE)
             stamp = label(message_time(m["time"]), "msg-time")
             stamp.set_valign(Gtk.Align.BASELINE)
-            head.pack_start(author, False, False, 0)
+            head.pack_start(author, False, True, 0)
             head.pack_start(stamp, False, False, 0)
             col.pack_start(head, False, False, 0)
 

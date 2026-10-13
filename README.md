@@ -53,7 +53,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.4.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.4.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
@@ -156,7 +156,7 @@ if you want.
 | → | Go in: server → its channels; forum → its posts; friend, channel, thread or post → open the chat, ready to type in its reply box |
 | Click a category heading | Collapse / expand it (in Discord too); the arrow keys skip headings |
 | Scroll to the end of a forum's posts | Loads older posts |
-| ← | Back out: reply box (cursor at the start) → list → close the chat → leave the forum → leave the server |
+| ← | Back out: reply box (cursor at the start) → list → leave the forum → leave the server. The open chat stays open |
 | Tab | Switch between the list and the open chat's reply box (keeps your draft, highlight and tab) |
 | Enter | In the reply box: send. In the search box: open the top match |
 | Type a letter | Search the current tab (↓ goes back to the list) |
@@ -257,6 +257,8 @@ account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible)
 - `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history,
   voice channels, custom status, mouse clicks) and says whether they passed. GitHub runs them on every push too (the badge at the top).
 - `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
+- Versions: between releases the version is the next one with `-dev.N` (e.g. `1.4.1-dev.2`, shown by
+  `--version` and in the F1 list), N going up with each test build; a release drops the `-dev.N`.
 - `dev/smoke_real.py` runs every read-only bridge call against your own running Vesktop (all servers, channels
   and forums) and checks the answers; it prints only counts and timings, and never sends or changes anything.
 - `dev/screenshot.sh` remakes `assets/screenshot.png` and `assets/screenshot-voice.png` (the pictures above) from

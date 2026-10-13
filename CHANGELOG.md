@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.1
+
+- ← no longer closes the open chat: it only goes back out (reply box → list → out of a forum → out of a
+  server), so you can browse while your conversation stays open.
+- Fixed the panel growing wider (and staying wide): a message with many reactions (they now wrap onto more
+  lines, like Discord's), an emoji-only message with many emoji (also wrap), a long channel / post / server name
+  in the chat header, a long typing / status line, or a long author name (cut short with "…"). A new check
+  keeps it so.
+- Fixed forums looking empty (and showing no "N new") until you'd opened that server in Vesktop's own window:
+  Discord loads a server's active posts only when you look at it, and now opening the server or forum in the
+  overlay asks for them the same way.
+
 ## 1.4.0
 
 - A server's channels now match Discord's sidebar: only the channels you picked in Browse Channels, in

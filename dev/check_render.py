@@ -138,7 +138,7 @@ fb.run_steps(main, [
     same_media,
     lambda o: o._close_conversation(),
     lambda o: o._open_conversation("F1"),
-    expect("chat closed with ← and reopened", []),
+    expect("chat closed and reopened", []),
     same_media,
     lambda o: o._load_older(),
     older_loaded,

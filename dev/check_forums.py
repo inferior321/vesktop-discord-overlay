@@ -20,7 +20,10 @@ fb.CHANNELS[:] = [
     category("K2", "Archive", collapsed=True),
     category("K3", "Support Forums"),
     dict(fb.card("F1", "help", unread=True), forum=True, newPosts=3, preview=None),
+    dict(fb.card("F2", "bugs"), forum=True, newPosts=0, preview=None),
 ]
+# A forum whose active posts Discord hasn't sent yet (just after Vesktop started): loading, nothing listed.
+fb.POSTS["F2"] = {"posts": [], "older": [fb.post("B9", "an old bug")], "loading": True}
 fb.POSTS["F1"] = {"posts": [fb.post(f"P{i}", f"question {i}", replies=i, unread=i < 3, new_count=2 if i == 1 else None)
                             for i in range(1, 31)],
                   "older": [fb.post(f"P{i}", f"old question {i}") for i in range(31, 37)]}
@@ -66,7 +69,7 @@ def open_server(o):
 
 
 def listed(o):
-    assert ids(o) == ["K1", "C1", "T1", "C2", "K2", "K3", "F1"], ids(o)
+    assert ids(o) == ["K1", "C1", "T1", "C2", "K2", "K3", "F1", "F2"], ids(o)
     assert row(o, "K1").name.get_text() == "BULLETIN BOARD" and row(o, "K2").arrow.get_text() == "▸"
     assert row(o, "T1").icons["thread"].get_visible(), "a thread: ↳, under its channel"
     assert row(o, "F1").icons["forum"].get_visible() and row(o, "F1").new.get_text() == "3 new"
@@ -120,12 +123,13 @@ def post_open(o):
 
 
 def back_out(o):
-    assert o.channel_id is None and o.forum, "← first closes the post"
+    assert o.forum is None and o._highlighted() is row(o, "F1"), "← in the list: back to the channels, on the forum"
+    assert o.channel_id == "P2", "the post stays open"
     o._list_key("Left", None)
-    assert o.forum is None and o._highlighted() is row(o, "F1"), "← again: back to the channels, on the forum"
+    assert o.server is None and o.channel_id == "P2", "← again: the server list (the post still open)"
     o._list_key("Left", None)
-    assert o.server is None, "← again: the server list"
-    print("← closes the post, then leaves the forum, then the server", flush=True)
+    assert o.server is None and o.channel_id == "P2", "← at the top: nothing more (never closes the chat)"
+    print("← leaves the forum, then the server; the open post stays open throughout", flush=True)
     o._set_tab("friends")
     o._open_conversation("P5")  # e.g. from the Ctrl+← history
 
@@ -138,7 +142,7 @@ def revealed(o):
     assert o.tab == "servers" and o.server["id"] == "S1" and o.forum["id"] == "F1", (o.tab, o.server, o.forum)
     assert o._highlighted() is row(o, "P5"), "Ctrl+Shift+Right: the post, highlighted in its forum"
     print("Ctrl+Shift+Right on a post: shown in its forum, highlighted", flush=True)
-    o._back()  # (the open post is in this view: closes it)
+    o._close_conversation()
     o._leave_forum()
     o._activate(row(o, "F1"))
     o._mark_chat_read("F1")
@@ -189,11 +193,26 @@ def collapsed_search(o):
     assert [r.data["id"] for r in o._visible_rows()] == ["F1"] and not o._filter_row(row(o, "K3"))
     o.search.set_text("")
     print("Friends and back keeps the forum; leaving frees its rows; searching hides headings", flush=True)
+    state["older_calls"] = len(calls("olderPosts"))
+    o._activate(row(o, "F2"))
+
+
+def still_loading(o):
+    assert o.forum["id"] == "F2" and ids(o) == [], ids(o)
+    assert len(calls("olderPosts")) == state["older_calls"], "no older posts asked for while the active ones load"
+    forum = fb.POSTS["F2"]  # Discord's answer arrives
+    forum.update(posts=[fb.post("B1", "login loop"), fb.post("B2", "crash on start")], loading=False)
+    fb.push_lists()
+
+
+def arrived(o):
+    assert ids(o)[:2] == ["B1", "B2"], ids(o)
+    print("a forum still loading its posts waits (no older ones asked for), then fills in", flush=True)
 
 
 state = {}
 fb.run_steps(main, [wait, open_server, wait, listed, wait, collapsed, wait, in_forum, wait, wait, older_loaded,
                     wait, post_open, wait, back_out, wait, reveal, wait, wait, revealed, wait, marked, wait,
                     searched, wait, update_arrives, wait, wait, live_update, wait, tabs_back, wait, rows_freed,
-                    wait, collapsed_search],
+                    wait, collapsed_search, wait, still_loading, wait, wait, arrived],
              interval_ms=600)

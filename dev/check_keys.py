@@ -42,6 +42,12 @@ def right_opens(o):
 
 def left_back(o):
     expect(o, "list", "F3", "← in the empty reply box")
+    keys("Left")
+
+
+def left_in_list(o):
+    expect(o, "list", "F3", "← in the list (the chat stays open)")
+    assert o.channel_id == "F3" and o.header.get_visible(), "← never closes the chat"
     keys("Return")
 
 
@@ -99,6 +105,7 @@ def wait(o):
     pass
 
 
-fb.run_steps(main, [wait, opened, tab_to_list, right_opens, left_back, enter_nothing, left_in_text, at_start,
-                    left_at_start, tab_to_reply, reopen, wait, reopened, servers, wait, in_server, wait, channel_open],
+fb.run_steps(main, [wait, opened, tab_to_list, right_opens, left_back, left_in_list, enter_nothing, left_in_text,
+                    at_start, left_at_start, tab_to_reply, reopen, wait, reopened, servers, wait, in_server,
+                    wait, channel_open],
              interval_ms=700)

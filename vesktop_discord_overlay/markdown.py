@@ -238,18 +238,34 @@ def is_jumbo(nodes):
     return 0 < count <= JUMBO_LIMIT
 
 
+def wrapping_row(spacing):
+    """A row that wraps onto more lines when it doesn't fit (like text), so it can never widen the panel."""
+    row = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=spacing, row_spacing=spacing,
+                      max_children_per_line=100, homogeneous=False)
+    row.set_can_focus(False)  # (it spans the message's width; each line fills from the left)
+    return row
+
+
+def add_to_row(row, widget):
+    row.add(widget)
+    child = widget.get_parent()  # the FlowBoxChild around it
+    child.set_can_focus(False)
+    child.set_halign(Gtk.Align.START)
+
+
 def jumbo_row(nodes, ctx):
-    row = Gtk.Box(spacing=4)
+    """An emoji-only message: its emoji large, wrapping if there are many."""
+    row = wrapping_row(4)
     for n in nodes:
         if n["t"] == "emoji":
-            row.pack_start(add_class(Gtk.Label(label=n["v"]), "md-jumbo"), False, False, 0)
+            add_to_row(row, add_class(Gtk.Label(label=n["v"]), "md-jumbo"))
         elif n["t"] == "customEmoji":
             pic = Picture(JUMBO_EMOJI, JUMBO_EMOJI)
             pic.set_tooltip_text(f":{n['name']}:")
             anim = ctx.media.image(emoji_url(n), lambda a, p=pic: a and p.set_animation(a))
             if anim:
                 pic.set_animation(anim)
-            row.pack_start(pic, False, False, 0)
+            add_to_row(row, pic)
     return row
 
 
@@ -323,9 +339,9 @@ def render_message(nodes, ctx, edited=False):
 
 def reaction_row(reactions, media, on_click):
     """Emoji reactions under a message, with counts; yours are highlighted. Clicking one calls on_click(reaction)
-    (the overlay adds or removes yours)."""
-    row = Gtk.Box(spacing=4)
-    row.set_halign(Gtk.Align.START)
+    (the overlay adds or removes yours). They wrap onto more lines like Discord's: a message with dozens of
+    reactions mustn't widen the panel."""
+    row = wrapping_row(4)
     for r in reactions:
         pill = add_class(Gtk.Button(), "reaction")
         pill.set_can_focus(False)
@@ -346,5 +362,5 @@ def reaction_row(reactions, media, on_click):
         content.pack_start(add_class(Gtk.Label(label=str(r["count"])), "reaction-count"), False, False, 0)
         pill.add(content)
         pill.connect("clicked", lambda _b, r=r: on_click(r))
-        row.pack_start(pill, False, False, 0)
+        add_to_row(row, pill)
     return row

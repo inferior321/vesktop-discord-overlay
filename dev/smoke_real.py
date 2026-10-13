@@ -1,7 +1,8 @@
 """Read-only check against your real, running Vesktop (port 9222), for before a release: runs every read-only
 bridge call over all your servers, channels and forums, checks the shape of each answer and how long it took,
-and prints only counts and timings: no names, no messages. It never sends, marks, joins or loads anything
-from Discord (no message fetching, no older posts).
+and prints only counts and timings: no names, no messages. It never sends, marks or joins anything, and loads
+nothing from Discord beyond what opening a server does in Discord's app (its active forum posts): no messages,
+no older posts.
 
     python3 dev/smoke_real.py
 """

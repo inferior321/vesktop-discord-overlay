@@ -17,8 +17,8 @@ Panel keys:
     Up/Down          browse the list (Up from the top goes to the search box)
     Right            go in: a server opens its channels, a forum its posts; a friend, channel, thread or post
                      opens its chat, ready to type
-    Left             back out: reply box (cursor at start) -> list -> close the chat -> leave the forum -> leave
-                     the server
+    Left             back out: reply box (cursor at start) -> list -> leave the forum -> leave the server (the
+                     open chat stays open)
     click a heading  collapse / expand that category of channels (in Discord too)
     Up/Down (reply)  scroll the messages; the top loads older ones
     type a letter    search the current tab (Down goes back to the list)
