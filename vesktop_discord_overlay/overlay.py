@@ -14,13 +14,13 @@ from .config import (CHAT_POLL_MS, CLICK_AWAY_CHECK_MS, CLICK_AWAY_GRACE_SECONDS
                      ERROR_SHOW_MS, FOCUS_DELAY_MS, FOLLOW_CHECK_SECONDS, FOLLOW_STARTUP_GRACE, HEADER_AVATAR,
                      HELP_HOVER_CHECK_MS, HELP_HOVER_SIZE, HISTORY_LENGTH, HOTKEY_KEYSYM, HOTKEY_LABEL,
                      HOTKEY_MODIFIERS, LIST_POLL_MS, LIVE_LIST_REFRESH_MS, NOTE_SHOW_MS, OPACITY_MIN, OPACITY_STEP,
-                     PANEL_MAX_H, PANEL_MAX_W, PANEL_SCREEN_H, PANEL_SCREEN_W, SIDEBAR_W, USER_AVATAR,
-                     VESKTOP_FOCUS_DELAY_MS, VOICE_SETTLE_SECONDS)
+                     RESIZE_GRIP, SIDEBAR_W, USER_AVATAR, VESKTOP_FOCUS_DELAY_MS, VOICE_SETTLE_SECONDS)
 from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, Pango, WebKit2
 from .history import HistoryMixin
 from .hotkey import HotkeyListener
 from .media import Avatar, MediaCache, Picture
 from .messages import MessagesMixin, message_box
+from .panel import PanelMixin
 from .pickers import Picker, Suggestions
 from .shortcuts import help_popover
 from .sidebar import SidebarMixin
@@ -32,7 +32,7 @@ from .viewer import Viewer
 from .widgets import add_class, fill_menu, label, pointer_inside, set_class, voice_person
 
 
-class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin):
+class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin, PanelMixin):
     """The panel: window, layout, show / hide, keyboard, voice. The rest lives in the mixins."""
 
     def __init__(self):
@@ -166,6 +166,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         root.add(outer)
         self.viewer = Viewer(self.images, lambda text: self._flash(text, NOTE_SHOW_MS))
         root.add_overlay(self.viewer)
+        self._build_grips(root)  # ◢ resizes the panel, ✥ moves it (panel.py)
 
         # Sidebar: tabs, search, back button, cards.
         side = add_class(Gtk.Box(orientation=Gtk.Orientation.VERTICAL), "sidebar")
@@ -387,6 +388,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         help_box.connect("enter-notify-event", lambda *_: self._help_hover())
         help_box.connect("leave-notify-event", lambda *_: self._help_maybe_close())
         bar.pack_end(help_box, False, False, 4)
+        help_box.set_margin_end(RESIZE_GRIP - 4)  # (room for the resize grip in the corner)
         self.help_box = help_box
         self.help = help_popover(help_box)
         self.help.connect("leave-notify-event", lambda *_: self._help_maybe_close())
@@ -669,15 +671,6 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         if self.prev_window:
             run_quiet(["xdotool", "windowactivate", self.prev_window])
             self.prev_window = None
-
-    def _place_window(self):
-        display = Gdk.Display.get_default()
-        _, x, y = display.get_default_seat().get_pointer().get_position()
-        geo = display.get_monitor_at_point(x, y).get_geometry()
-        w = min(PANEL_MAX_W, int(geo.width * PANEL_SCREEN_W))
-        h = min(PANEL_MAX_H, int(geo.height * PANEL_SCREEN_H))
-        self.win.resize(w, h)
-        self.win.move(geo.x + (geo.width - w) // 2, geo.y + (geo.height - h) // 2)
 
     def _poll_lists(self):
         self._refresh_lists()

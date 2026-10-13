@@ -31,8 +31,10 @@ OPACITY_MIN = 0.30  # never fainter than this, so the panel can't effectively di
 NOTE_SHOW_MS = 2500  # how long short notes ("Opacity 75%", "Saved to Downloads/…") stay in the bottom bar
 
 # ---- Panel layout ----------------------------------------------------------------------------------------
-PANEL_MAX_W, PANEL_MAX_H = 1080, 720  # the panel's size on large screens...
+PANEL_MAX_W, PANEL_MAX_H = 1080, 720  # the panel's default size on large screens...
 PANEL_SCREEN_W, PANEL_SCREEN_H = 0.72, 0.8  # ...and at most this share of a smaller screen
+PANEL_GROW_MAX = 0.95  # dragging the bottom-right corner can enlarge it up to this share of the screen
+RESIZE_GRIP = 28  # the panel's grips (easy to grab): ◢ bottom right resizes it, ✥ top right moves it
 SIDEBAR_W = 330
 CARD_AVATAR = 40  # friend / server pictures in the list
 MESSAGE_AVATAR = 36
@@ -73,6 +75,7 @@ VESKTOP_FOCUS_DELAY_MS = 250  # Open in Vesktop: after raising Vesktop, before f
 GIF_SEARCH_DELAY_MS = 350  # wait for a pause in typing before searching GIFs
 TYPING_REPORT_SECONDS = 3  # tell Discord you're typing at most this often (Discord throttles further)
 VOICE_SETTLE_SECONDS = 1.5  # after Mute/Deafen, how long to trust the button over Discord's answer
+RECENTRE_DELAY_MS = 120  # after resizing / moving the panel, place it again once the new size is applied
 
 # ---- Media and emoji -------------------------------------------------------------------------------------
 MEDIA_MAX_W, MEDIA_MAX_H = 360, 280  # images and GIFs in messages

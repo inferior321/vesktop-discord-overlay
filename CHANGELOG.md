@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+
+- Resize the panel: drag the ◢ in its bottom-right corner. It grows on both sides around where it is, from its
+  default size up to 95% of the screen, and the size is remembered. Double-click the ◢ to go back to the
+  default. (PANEL_GROW_MAX in the settings sets the largest share of the screen.)
+- Move the panel: drag the ✥ in its top-right corner; the place is remembered (relative to the screen's centre,
+  so it works on any monitor). Double-click the ✥ to centre it again. Moving and resizing keep the panel whole
+  on its screen and clear of the taskbar and other panels.
+
 ## 1.4.1
 
 - ← no longer closes the open chat: it only goes back out (reply box → list → out of a forum → out of a

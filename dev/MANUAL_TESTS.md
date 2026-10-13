@@ -37,6 +37,11 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
       pinged). In a server, `#` and part of a channel name: a clickable channel link.
 - [ ] **Panel size:** open a busy server's announcement with lots of reactions, and a forum post or channel
       with a long name: the panel keeps its width (reactions wrap; long names end in "…").
+- [ ] **Resize:** drag the ◢ in the panel's bottom-right corner: it grows on both sides, staying centred,
+      no smaller than the default and no larger than nearly the whole screen. Close and reopen it: same size.
+      Double-click the ◢: back to the default. Drag the ✥ (top right): the panel moves, but never off the screen
+      or under the taskbar (try dragging it down past the taskbar, and onto another monitor if you have one).
+      Close and reopen it: same place. Double-click the ✥: back to the centre.
 - [ ] **Read elsewhere:** read a chat on your phone or in Vesktop's window. Its unread dot in the panel clears
       within a second.
 - [ ] **Health:** after starting from the app menu, no "Discord changed something" notification appears.

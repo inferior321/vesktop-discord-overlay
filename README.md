@@ -38,7 +38,8 @@ client code; it never sees or stores your login token.
   chats you opened. Press F1 for the full list.
 - **Marks chats as read** once you've seen their newest messages, like Discord, so they clear on your other
   devices too.
-- Image viewer, adjustable opacity, unsent-draft markers, and every setting in one commented file.
+- Image viewer, adjustable opacity, size and position, unsent-draft markers, and every setting in one commented
+  file.
 
 ![A server's channels with its voice channels and who's in them, and the Voice connected pop-up (made-up example)](assets/screenshot-voice.png)
 
@@ -53,7 +54,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.4.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.5.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
@@ -180,6 +181,8 @@ if you want.
 | In the custom status pop-up | Type your status; 😀 or Ctrl+E picks an emoji (✕ removes it); choose **Clear after**; Enter or **Save** sets it, **Clear** removes it, Esc cancels |
 | ✎ beside a chat in the list | You left an unsent draft there |
 | F1, or hover the **?** in the bottom-right corner | List of all these shortcuts |
+| Drag the **◢** in the bottom-right corner | Resize the panel (on both sides, around where it is), from its default size up to 95% of the screen; remembered. Double-click it: back to the default size |
+| Drag the **✥** in the top-right corner | Move the panel; remembered. It always stays whole on its screen, clear of the taskbar and other panels. Double-click it: back to the centre |
 | Click an image or GIF | View it large inside the panel: ←/→ flip through the chat's media, **Copy** / **Save** (to Downloads), Esc or a click closes |
 | Click a YouTube thumbnail | Play it right in the chat with YouTube's own player. Esc returns to the panel; hiding the panel stops it |
 
@@ -196,9 +199,9 @@ HOTKEY_LABEL = "Ctrl+Shift+F12"
 
 Every setting, with its default and what it does, is listed in `vesktop_discord_overlay/config.py` (the hotkey,
 text size, panel size, timings, media sizes, the debug port). Don't edit that file itself: updates replace it,
-while your `settings.py` is never touched. Changes apply the next time the overlay starts; a misspelled
-setting name is reported in the log. The panel's opacity and your Ctrl+← / Ctrl+→ chat history are remembered
-in `~/.config/vesktop-discord-overlay/state.json`.
+while your `settings.py` is never touched. Changes apply the next time the overlay starts; a misspelled setting
+name is reported in the log. The panel's opacity, size and place and your Ctrl+← / Ctrl+→ chat history are remembered in
+`~/.config/vesktop-discord-overlay/state.json`.
 
 ## Troubleshooting
 
@@ -225,6 +228,7 @@ in `~/.config/vesktop-discord-overlay/state.json`.
 | `launch.py` | What the menu/panel icon runs: starts Vesktop with the port, then the overlay |
 | `install.sh` | Checks / installs what's needed (Debian / Ubuntu / Mint), offers Vesktop, puts the program in `~/vesktop-discord-overlay`, adds the app-menu entry and icon |
 | `vesktop_discord_overlay/overlay.py` | The panel: window, layout, show / hide, keyboard, voice |
+| `vesktop_discord_overlay/panel.py` | The panel's size and place: the ◢ (resize) and ✥ (move) grips, kept on screen |
 | `vesktop_discord_overlay/status.py` | You at the bottom left: your status and custom status (menu and pop-up) |
 | `vesktop_discord_overlay/sidebar.py` | Friends / Servers tabs, search, the list and its keys |
 | `vesktop_discord_overlay/messages.py` | The open chat: drawing messages (only what changed), scrolling, older history, media |

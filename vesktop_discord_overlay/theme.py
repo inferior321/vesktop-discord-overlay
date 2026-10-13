@@ -208,6 +208,8 @@ button.tool.primary:hover {{ background: #4752c4; }}
 .voice-state.muted, .voice-state.deafened {{ color: #f23f43; }}
 .error-text {{ color: #f23f43; font-size: {pt(8)}; }}
 .error-text.note {{ color: #949ba4; }}
+.grip-mark {{ color: #6d6f78; font-size: {pt(15)}; }}
+.grip:hover .grip-mark {{ color: #f2f3f5; }}
 .help-icon {{ color: #949ba4; background: {INPUT}; border-radius: 9px; font-weight: 700; font-size: {pt(9)};
               padding: 0 6px; }}
 .help-icon:hover {{ color: #f2f3f5; background: {SELECTED}; }}

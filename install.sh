@@ -204,7 +204,7 @@ if [[ ! -e "$settings" ]]; then
 # HOTKEY_KEYSYM = "grave"                   # the hotkey's key ("grave" is `), e.g. "F12" or "o"
 # HOTKEY_MODIFIERS = X.ControlMask | X.ShiftMask
 # HOTKEY_LABEL = "Ctrl+Shift+`"             # how the hotkey is written in messages
-# PANEL_MAX_W, PANEL_MAX_H = 1080, 720      # the panel's size on large screens
+# PANEL_MAX_W, PANEL_MAX_H = 1080, 720      # the panel's default (and smallest) size on large screens
 # HISTORY_LENGTH = 25                       # chats remembered for Ctrl+Left / Ctrl+Right
 SETTINGS
     ok "Created $settings for your own settings"

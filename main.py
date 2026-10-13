@@ -34,6 +34,8 @@ Panel keys:
                      leave it (also the Join / Disconnect button)
     Voice connected  (click it) who's in your voice channel and who's speaking
     Ctrl+Up / Down   panel opacity (5% steps, 30% minimum, remembered)
+    drag ◢ / ✥      (bottom / top right corner) resize / move the panel, kept whole on its screen and clear of
+                     the taskbar; remembered (double-click: default size / back to the centre)
     Ctrl+Left/Right  previous / next chat you opened, ready to type (last 25, wraps around)
     Ctrl+Shift+Left  remove the open chat from that history and go to the next one (like closing a tab)
     Ctrl+Shift+Right show the open chat in the sidebar (Friends or its server), highlighted
