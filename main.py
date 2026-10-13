@@ -40,7 +40,7 @@ Panel keys:
     Ctrl+Shift+Left  remove the open chat from that history and go to the next one (like closing a tab)
     Ctrl+Shift+Right show the open chat in the sidebar (Friends or its server), highlighted
     Ctrl+Shift+Down  clear that history and close the chat (asks first); the history is remembered across restarts
-    F1 / hover ?     list of all shortcuts
+    F1 / hover ?     list of all shortcuts (a click, Esc or F1 closes it)
     Ctrl+Shift+`     toggle the panel (opens ready to type in the open chat)
     click an image   open it full size (or reveal a spoiler); clicking outside the panel closes it
     click a YouTube thumbnail  play it inline (Esc back to the panel; hiding the panel stops it)

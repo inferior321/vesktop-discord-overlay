@@ -1,6 +1,7 @@
 """Check: clicks with a real mouse (xdotool). Picking a reaction in the emoji picker right above a GIF (a looping
 video, as Discord sends most GIFs) doesn't also open the GIF; media open only on a whole
-click (pressed and released on them); sliding off an emoji or a GIF before letting go cancels."""
+click (pressed and released on them); sliding off an emoji or a GIF before letting go cancels; F1's shortcut
+list closes on any click."""
 
 import os
 import subprocess
@@ -121,6 +122,33 @@ def gif_playing(o):
     assert gif(o).video is not None, "the GIF plays as a video (the case to test)"
 
 
+def help_open(o):
+    o._focus_reply()
+    mouse("key", "F1")
+
+
+def help_shown(o):
+    assert o.help.get_visible(), "F1 shows the shortcut list"
+    click(*screen_point(o, o.listbox, 60, 20))  # somewhere else in the panel
+
+
+def help_closed(o):
+    assert not o.help.get_visible() and o.win.get_visible(), "a click closes the list (not the panel)"
+    mouse("key", "F1")
+
+
+def help_again(o):
+    assert o.help.get_visible()
+    help_widget = o.help.get_child()
+    click(*screen_point(o, help_widget, 20, 20))  # on the list itself
+
+
+def help_closed_again(o):
+    assert not o.help.get_visible(), "a click on the list closes it too"
+    print("F1's shortcut list closes on a click, anywhere", flush=True)
+
+
 fb.run_steps(main, [wait, wait, gif_playing, open_picker, wait,
                     click_emoji, wait, picked_only, wait, slide_off_emoji, wait,
-                    slid_off, wait, slide_off_gif, wait, gif_not_opened, wait, gif_opened], interval_ms=700)
+                    slid_off, wait, slide_off_gif, wait, gif_not_opened, wait, gif_opened, wait, help_open, wait,
+                    help_shown, wait, help_closed, wait, help_again, wait, help_closed_again], interval_ms=700)

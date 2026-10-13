@@ -54,7 +54,7 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.5.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.5.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
@@ -180,7 +180,7 @@ if you want.
 | Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible, or **Set custom status…** (your custom status shows under your name) |
 | In the custom status pop-up | Type your status; 😀 or Ctrl+E picks an emoji (✕ removes it); choose **Clear after**; Enter or **Save** sets it, **Clear** removes it, Esc cancels |
 | ✎ beside a chat in the list | You left an unsent draft there |
-| F1, or hover the **?** in the bottom-right corner | List of all these shortcuts |
+| F1, or hover the **?** in the bottom-right corner | List of all these shortcuts (a click, Esc or F1 closes it) |
 | Drag the **◢** in the bottom-right corner | Resize the panel (on both sides, around where it is), from its default size up to 95% of the screen; remembered. Double-click it: back to the default size |
 | Drag the **✥** in the top-right corner | Move the panel; remembered. It always stays whole on its screen, clear of the taskbar and other panels. Double-click it: back to the centre |
 | Click an image or GIF | View it large inside the panel: ←/→ flip through the chat's media, **Copy** / **Save** (to Downloads), Esc or a click closes |

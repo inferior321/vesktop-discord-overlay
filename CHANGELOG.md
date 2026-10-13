@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- The F1 shortcut list now closes when you click, anywhere (before, only Esc, F1 or hovering the ? did).
+
 ## 1.5.0
 
 - Resize the panel: drag the ◢ in its bottom-right corner. It grows on both sides around where it is, from its

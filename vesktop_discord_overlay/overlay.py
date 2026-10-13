@@ -152,11 +152,11 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         win.connect("delete-event", lambda *_: self.hide() or True)
         win.connect("focus-out-event", self._on_focus_out)
         # Sees every click in the panel before the widget clicked does (without stopping it): clicking outside
-        # an open picker closes it, and the click still does its usual thing.
+        # an open picker closes it, any click closes the shortcut list, and the click still does its usual thing.
         self.click_watch = Gtk.GestureMultiPress.new(win)
         self.click_watch.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         self.click_watch.set_button(0)  # any button
-        self.click_watch.connect("pressed", lambda *_: self._close_picker_if_clicked_away())
+        self.click_watch.connect("pressed", lambda *_: (self._close_picker_if_clicked_away(), self.help.popdown()))
 
         # The viewer floats over the whole panel, so the window's content sits in an overlay.
         root = Gtk.Overlay()
