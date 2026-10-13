@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0
+
+- A server's channels now match Discord's sidebar: only the channels you picked in Browse Channels, in
+  Discord's order, under their categories (click a heading to collapse or expand it, in Discord too), with
+  joined threads under their channel.
+- Forums: listed with Discord's "N new", and → opens a forum's posts (title, who started it, replies, new
+  replies; most recent activity first). Scrolling to the end loads older posts; → on a post opens it as a chat.
+- Mark as read on a server (or a forum) now also clears forums' new posts and joined threads, like Discord's.
+  Before, a server whose only unread things were forum posts stayed unread.
+- `@` and `#` suggestions in the reply box, like the `:` emoji ones: people in the chat and the server's
+  channels; picking one makes a real mention / channel link.
+- A list that fills in after it's shown (a forum's posts, found with Ctrl+Shift+→) highlights the open chat.
+
 ## 1.3.0
 
 - Custom status: click your name → **Set custom status…** for a small pop-up with your text, an emoji (😀 or

@@ -29,6 +29,6 @@ These are how the overlay works, and are described in the README's **Before you 
 - It never reads, stores or sends your login token; everything goes through Discord's own client code inside
   Vesktop.
 - It only asks Discord for something when you do something (open a chat, send, react, edit, delete, scroll
-  back, search GIFs); it makes no requests on its own.
+  back, scroll a forum's older posts, search GIFs, join a call); it makes no requests on its own.
 - The only other things it downloads are the images, GIFs and thumbnails it shows (from Discord's and
   YouTube's servers).

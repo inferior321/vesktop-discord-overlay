@@ -15,15 +15,16 @@ client code; it never sees or stores your login token.
 ## Features
 
 - **Friends and Servers** with avatars, online status, unread dots, ping counts and last-message previews
-  (for chats Vesktop has loaded: ones you've opened, or with new messages since it started); servers open
-  into their channel lists, with the voice channels last and who's in them (live; "2/5" where there's a
-  user limit). Type to search.
+  (for chats Vesktop has loaded: ones you've opened, or with new messages since it started). Servers open
+  into their channels as Discord's sidebar shows them: your Browse Channels picks, categories (click one to
+  collapse it), joined threads, voice channels with who's in them (live; "2/5" where there's a user limit),
+  and forums, which open into their posts. Type to search.
 - **Chats** with Discord's formatting (bold, links, mentions, spoilers, code, quotes, lists), server emoji,
   images, GIFs, inline YouTube, forwarded messages, polls, voice messages, bot commands, and Discord's own
   lines for calls, pins and people joining. New messages, edits, deletions and reactions appear the moment they
   happen; scrolling up loads older messages.
-- **Replying** with emoji and GIF pickers, `:` emoji suggestions and pasted images. Your friends see you
-  typing, and you see them typing.
+- **Replying** with emoji and GIF pickers, `:` emoji, `@` people and `#` channel suggestions, and pasted
+  images. Your friends see you typing, and you see them typing.
 - **Right-click a message** to reply, react, edit or delete your own, copy it or its link, or open it in
   Vesktop. Click a reaction to add or remove yours; click a reply's quote to jump to the original.
 - **Voice and status**: mute, deafen, join and leave voice channels from the bottom bar, and click "Voice
@@ -52,13 +53,13 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.3.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.4.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
-  back, search GIFs, join a call); it never makes requests on its own in the background. Apart from that, the
-  overlay downloads only the images, GIFs and thumbnails it shows (from Discord's and YouTube's servers) and
-  caches them in `~/.cache/vesktop-discord-overlay`.
+  back, search GIFs, scroll a forum's older posts, join a call); it never makes requests on its own in the
+  background. Apart from that, the overlay downloads only the images, GIFs and thumbnails it shows (from
+  Discord's and YouTube's servers) and caches them in `~/.cache/vesktop-discord-overlay`.
 
 ## Requirements
 
@@ -152,14 +153,17 @@ if you want.
 | Ctrl+Shift+↓ | Clear the whole history and close the chat (asks first: Enter clears, Esc cancels) |
 | Ctrl+↑ / Ctrl+↓ | Panel opacity, in 5% steps (30% minimum); remembered between runs |
 | ↑ / ↓ | Move through the list (↑ at the top goes to the search box) |
-| → | Go in: server → its channels; friend or channel → open the chat, ready to type in its reply box |
-| ← | Back out: reply box (cursor at the start) → list → close the chat → leave the server |
+| → | Go in: server → its channels; forum → its posts; friend, channel, thread or post → open the chat, ready to type in its reply box |
+| Click a category heading | Collapse / expand it (in Discord too); the arrow keys skip headings |
+| Scroll to the end of a forum's posts | Loads older posts |
+| ← | Back out: reply box (cursor at the start) → list → close the chat → leave the forum → leave the server |
 | Tab | Switch between the list and the open chat's reply box (keeps your draft, highlight and tab) |
 | Enter | In the reply box: send. In the search box: open the top match |
 | Type a letter | Search the current tab (↓ goes back to the list) |
 | ↑ / ↓ (in the reply box) | Scroll the messages; reaching the top loads older ones |
 | Ctrl+E / Ctrl+G (in the reply box), or the 😀 / **GIF** buttons | Emoji / GIF picker; the other one switches, the same one or Esc closes |
 | `:` + two letters | Emoji suggestions. Tab or Enter inserts one |
+| `@` / `#` (+ letters) | People in the chat / the server's channels; Tab or Enter inserts a real mention / channel link |
 | Right-click a message → Reply | Reply to it; Esc cancels |
 | Right-click a message → Add reaction | Pick an emoji to react with |
 | Click a reaction under a message | Add yours, or remove it if it's already yours |
@@ -253,6 +257,8 @@ account is read or touched. It needs `Xvfb` (`sudo apt install xvfb`, invisible)
 - `dev/check.sh` runs the automatic checks (features, message redrawing, live updates, keys, chat history,
   voice channels, custom status, mouse clicks) and says whether they passed. GitHub runs them on every push too (the badge at the top).
 - `dev/MANUAL_TESTS.md` lists what to try by hand on a real account before a release.
+- `dev/smoke_real.py` runs every read-only bridge call against your own running Vesktop (all servers, channels
+  and forums) and checks the answers; it prints only counts and timings, and never sends or changes anything.
 - `dev/screenshot.sh` remakes `assets/screenshot.png` and `assets/screenshot-voice.png` (the pictures above) from
   made-up chats.
 - `dev/display.sh` opens a test display window with the overlay running on fake data, to try things by hand

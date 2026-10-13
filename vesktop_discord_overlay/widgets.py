@@ -127,12 +127,55 @@ def voice_person(images, person):
     return row
 
 
+def grey_icon(icon_name, fallback):
+    """A grey symbolic icon like Discord's channel icons (the fallback text if the icon theme lacks it)."""
+    if Gtk.IconTheme.get_default().has_icon(icon_name):
+        icon = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.MENU)
+        icon.set_pixel_size(18)
+    else:
+        icon = Gtk.Label(label=fallback)
+    return add_class(icon, "card-hash")
+
+
+class CategoryRow(Gtk.ListBoxRow):
+    """A category heading in a server's channel list, like Discord's. Clicking it collapses / expands it; the
+    arrow keys skip it (see SidebarMixin._visible_rows)."""
+
+    kind = "category"
+
+    def __init__(self):
+        super().__init__()
+        self.data = None
+        self.set_can_focus(False)
+        self.set_selectable(False)
+        add_class(self, "category")
+        box = Gtk.Box(spacing=4)
+        self.name = label("", "list-heading", ellipsize=True)
+        self.arrow = label("", "list-heading")
+        box.pack_start(self.name, False, True, 0)
+        box.pack_start(self.arrow, False, False, 0)
+        self.add(box)
+
+    def update(self, data):
+        self.data = data
+        self.name.set_text(data["name"].upper())
+        self.arrow.set_text(("▸" if data["collapsed"] else "▾") if data.get("canCollapse") else "")
+        self.set_activatable(bool(data.get("canCollapse")))
+
+    def matches(self, terms):
+        return not terms  # headings hide while searching (the results are a flat list)
+
+    def set_draft(self, _has_draft):
+        pass
+
+
 class CardRow(Gtk.ListBoxRow):
-    """One friend / server / channel entry in the sidebar."""
+    """One entry in the sidebar: a friend, a server, a channel (text / voice / forum), a thread under its
+    channel, or a forum post."""
 
     def __init__(self, images, kind):
         super().__init__()
-        self.kind = kind  # "friend" | "server" | "channel"
+        self.kind = kind  # "friend" | "server" | "channel" | "thread" | "post"
         self.data = None
         self.set_can_focus(False)  # keep keyboard focus in the search box
         add_class(self, "card")
@@ -140,20 +183,22 @@ class CardRow(Gtk.ListBoxRow):
         self.images = images
         self.members = None  # a voice channel's people, as last shown
         box = Gtk.Box(spacing=10)
-        if kind == "channel":
+        if kind in ("channel", "thread", "post"):
             self.avatar = None
-            self.hash = label("#", "card-hash", xalign=0.5)
-            # Instead of # for a voice channel: a grey speaker like Discord's (an emoji if the icon theme lacks it).
-            if Gtk.IconTheme.get_default().has_icon("audio-volume-high-symbolic"):
-                self.speaker = Gtk.Image.new_from_icon_name("audio-volume-high-symbolic", Gtk.IconSize.MENU)
-                self.speaker.set_pixel_size(18)
-            else:
-                self.speaker = Gtk.Label(label="🔊")
-            add_class(self.speaker, "card-hash")
-            self.speaker.set_no_show_all(True)
-            for icon in (self.hash, self.speaker):
+            # Like Discord: # for a text channel, a speaker, speech bubbles for a forum, ↳ for a thread.
+            self.icons = {
+                "channel": {"text": label("#", "card-hash", xalign=0.5),
+                            "voice": grey_icon("audio-volume-high-symbolic", "🔊"),
+                            "forum": grey_icon("media-view-subtitles-symbolic", "💬")},
+                "thread": {"thread": label("↳", "card-hash", xalign=0.5)},
+                "post": {"post": grey_icon("text-x-generic-symbolic", "📝")},
+            }[kind]
+            for icon in self.icons.values():
                 icon.set_size_request(28, -1)
+                icon.set_no_show_all(True)
                 box.pack_start(icon, False, False, 0)
+            if kind == "thread":
+                box.set_margin_start(16)  # under its channel
         else:
             self.avatar = Avatar(images, CARD_AVATAR, rounded_square=kind == "server")
             box.pack_start(self.avatar, False, False, 0)
@@ -182,7 +227,10 @@ class CardRow(Gtk.ListBoxRow):
         self.badge.set_no_show_all(True)
         self.dot = label("●", "dot", xalign=1.0)
         self.dot.set_no_show_all(True)
+        self.new = label("", "new-count", xalign=1.0)  # a forum's "3 new" posts, a post's new replies
+        self.new.set_no_show_all(True)
         side.pack_start(self.time, False, False, 0)
+        side.pack_start(self.new, False, False, 0)
         side.pack_start(self.badge, False, False, 0)
         side.pack_start(self.dot, False, False, 0)
         box.pack_start(side, False, False, 0)
@@ -201,25 +249,40 @@ class CardRow(Gtk.ListBoxRow):
         set_class(self, "muted", data.get("muted", False))
 
         p = data.get("preview")
-        if p:
+        if self.kind == "post":  # who started it, how many replies
+            replies = data.get("replies", 0)
+            parts = [data.get("starter"), f"{replies} repl{'y' if replies == 1 else 'ies'}"]
+            self.preview.set_text(" · ".join(part for part in parts if part))
+            self.preview.set_visible(True)
+        elif self.kind == "thread":
+            self.preview.set_visible(False)  # just its name, like Discord
+        elif p:
             who = "You" if p["self"] else p["author"]
             where = f"#{p['channel']} · " if p.get("channel") else ""
             self.preview.set_text(f"{where}{p['text']}" if p.get("system") else f"{where}{who}: {p['text']}")
         elif data.get("activity"):  # no message loaded: what they're up to, like Discord's DM list
             self.preview.set_text(data["activity"])
-        set_class(self.preview, "activity", not p and bool(data.get("activity")))
-        self.preview.set_visible(bool(p) or bool(data.get("activity")))
+        if self.kind not in ("post", "thread"):
+            set_class(self.preview, "activity", not p and bool(data.get("activity")))
+            self.preview.set_visible(bool(p) or bool(data.get("activity")))
+        new = data.get("newPosts") or data.get("newCount") or (1 if data.get("isNew") else 0)
+        self.new.set_text("new" if data.get("isNew") and not data.get("newCount") else f"{new} new")
+        self.new.set_visible(bool(new))
 
         self.time.set_text(relative_time(data["last"]))
         mentions = data["mentions"]
         self.badge.set_text(str(mentions))
         self.badge.set_visible(mentions > 0)
-        self.dot.set_visible(mentions == 0 and data["unread"] and not data.get("muted", False))
+        # (A post's unread shows as a bright title only, like Discord's forum list: most posts are unread.)
+        self.dot.set_visible(mentions == 0 and data["unread"] and not data.get("muted", False) and not new
+                             and self.kind != "post")
 
+        if self.kind in ("channel", "thread", "post"):
+            shown = ("voice" if data.get("voice") else "forum" if data.get("forum") else "text"
+                     if self.kind == "channel" else self.kind)
+            for which, icon in self.icons.items():
+                icon.set_visible(which == shown)
         if self.kind == "channel":
-            voice = bool(data.get("voice"))
-            self.hash.set_visible(not voice)
-            self.speaker.set_visible(voice)
             limit = data.get("limit") or 0
             self.count.set_text(f"{len(data.get('members') or [])}/{limit}")
             self.count.set_visible(limit > 0)

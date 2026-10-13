@@ -1,4 +1,4 @@
-"""Check: a server's voice channels in its channel list: after the text channels under a "VOICE" heading, with
+"""Check: a server's voice channels in its channel list: in their category (as Discord's sidebar has them), with
 who's in them; the arrows go channel to channel, → opens a voice channel's text chat, and the bottom-right button
 (Ctrl+Shift+D) is "Join <channel>" for it, or Disconnect while in a call."""
 
@@ -16,9 +16,15 @@ def voice_channel(cid, name, members):
     return dict(fb.card(cid, name), preview=None, voice=True, members=members)
 
 
-fb.CHANNELS[:] = fb.CHANNELS + [voice_channel("V1", "Lounge", [person("u1", "Friend 1", speaking=True),
+fb.CHANNELS[:] = fb.CHANNELS + [{"kind": "category", "id": "K1", "name": "Voice Channels", "collapsed": False,
+                                 "canCollapse": True},
+                                voice_channel("V1", "Lounge", [person("u1", "Friend 1", speaking=True),
                                                               person("u2", "Friend 2", mute=True)]),
                                 voice_channel("V2", "Quiet Room", [])]
+
+
+def channel(cid):
+    return next(c for c in fb.CHANNELS if c["id"] == cid)
 
 
 def respond(method, args):
@@ -73,19 +79,18 @@ def open_server(o):
 
 def listed(o):
     ids = [r.data["id"] for r in o.rows]
-    assert ids == ["C1", "C2", "V1", "V2"], f"text channels, then voice channels: {ids}"
+    assert ids == ["C1", "C2", "K1", "V1", "V2"], f"in Discord's order, the voice channels in their category: {ids}"
     lounge, quiet = row(o, "V1"), row(o, "V2")
-    assert lounge.speaker.get_visible() and not lounge.hash.get_visible(), "a speaker instead of #"
-    assert row(o, "C1").hash.get_visible() and not row(o, "C1").speaker.get_visible()
+    assert lounge.icons["voice"].get_visible() and not lounge.icons["text"].get_visible(), "a speaker instead of #"
+    assert row(o, "C1").icons["text"].get_visible() and not row(o, "C1").icons["voice"].get_visible()
     assert not lounge.count.get_visible(), "no count without a user limit"
-    headings = [r.get_header().get_text() if r.get_header() else None for r in o.rows]
-    assert headings == [None, None, "VOICE", None], f"one VOICE heading above the voice channels: {headings}"
+    assert row(o, "K1").name.get_text() == "VOICE CHANNELS" and row(o, "K1").kind == "category"
     people = texts(lounge.people)
     assert people == ["Friend 1", "speaking", "Friend 2", "muted"], people
     rings = [p.get_children()[0].get_style_context().has_class("speaking") for p in lounge.people.get_children()]
     assert rings == [True, False], rings
     assert not quiet.people.get_visible(), "an empty voice channel is a single line"
-    print(f"listed {ids}; VOICE heading; Lounge shows {people}", flush=True)
+    print(f"listed {ids}; a category heading; Lounge shows {people}", flush=True)
 
 
 def button(o):
@@ -134,9 +139,9 @@ def joined(o):
     o._highlight(row(o, "V2"))
     assert button(o) == ("Disconnect", False), f"in a call, another channel doesn't change it ({button(o)})"
     print("Ctrl+Shift+D joins the open voice channel; in the call the button is Disconnect", flush=True)
-    lounge = fb.CHANNELS[2]  # Friend 1 stops talking (new lists, as each real update brings)
+    lounge = channel("V1")  # Friend 1 stops talking (new lists, as each real update brings)
     lounge["members"] = [dict(p, speaking=False) for p in lounge["members"]]
-    fb.CHANNELS[3].update(members=[person("u3", "Friend 3")], limit=1, full=True)  # Quiet Room fills up (1 max)
+    channel("V2").update(members=[person("u3", "Friend 3")], limit=1, full=True)  # Quiet Room fills up (1 max)
     fb.push_lists()
 
 
@@ -150,8 +155,8 @@ def live(o):
 def searched(o):
     visible = o._visible_rows()
     assert visible == [row(o, "V2")], visible
-    assert row(o, "V2").get_header() is not None, "the heading follows the search"
-    print("who's in each channel updates live; search keeps the heading", flush=True)
+    assert not o._filter_row(row(o, "K1")), "headings hide while searching"
+    print("who's in each channel updates live; searching hides the headings", flush=True)
     assert row(o, "V2").count.get_text() == "1/1" and row(o, "V2").count.get_visible()
     o._focus_search()
     o._highlight(row(o, "V2"))

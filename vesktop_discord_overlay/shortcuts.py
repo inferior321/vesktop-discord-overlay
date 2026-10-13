@@ -13,8 +13,8 @@ COLUMNS = [[
     ]),
     ("List", [
         ("↑ ↓", "Move"),
-        ("→", "Open and type (server: channels)"),
-        ("←", "Close chat / leave server"),
+        ("→", "Open and type (server, forum: go in)"),
+        ("←", "Close chat / go back out"),
         ("Type", "Search"),
         ("Tab", "List ⇄ reply box"),
     ]),
@@ -28,7 +28,7 @@ COLUMNS = [[
         ("Enter", "Send"),
         ("↑ ↓", "Scroll (top loads older)"),
         ("← at start", "Back to the list"),
-        (":ab", "Emoji suggestions"),
+        (":ab  @  #", "Emoji, people, channels"),
     ]),
     ("Pickers", [
         ("Arrows, Enter", "Choose, insert / send"),

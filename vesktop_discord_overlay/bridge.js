@@ -15,6 +15,13 @@
     const Typing = find("startTyping", "stopTyping");
     const VoiceChannels = find("disconnect", "selectVoiceChannel");
     const Speaking = find("isSpeaking", "getSpeakingDuration") ?? find("isSpeaking");
+    const ThreadActions = find("loadArchivedThreads", "joinThread");
+    const store = name => { try { return W.findStore(name) ?? null; } catch { return null; } };
+    const ChannelList = store("ChannelListStore"); // Discord's sidebar, as it draws it
+    const ActiveThreads = store("ActiveThreadsStore");
+    const JoinedThreads = store("ActiveJoinedThreadsStore");
+    const ArchivedThreads = store("ArchivedThreadsStore");
+    const PostUnreadCounts = store("ForumPostUnreadCountStore");
     let StatusSetting = null;
     try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
     let CustomStatusSetting = null; // your custom status: { text, emojiId ("0": none), emojiName, expiresAtMs, ... }
@@ -28,6 +35,9 @@
 
     const TEXT_TYPES = new Set([0, 5]); // GUILD_TEXT, GUILD_ANNOUNCEMENT
     const VOICE_TYPES = new Set([2, 13]); // GUILD_VOICE, GUILD_STAGE_VOICE
+    const FORUM_TYPES = new Set([15, 16]); // GUILD_FORUM, GUILD_MEDIA: posts instead of messages
+    // How older (archived) forum posts are asked for: newest activity first, no tag filter, like Discord.
+    const POST_SORT = 0, NO_TAGS = new Set(), TAG_SETTING = "match_some";
     const DM = 1, GROUP_DM = 3;
     const DISCORD_EPOCH = 1420070400000;
     // Tunables for this side (the Python settings live in config.py).
@@ -35,6 +45,7 @@
     const FETCH_LIMIT = 50; // messages fetched when a chat isn't loaded yet
     const PREVIEW_MAX_CHARS = 140;
     const FRECENT_EMOJI = 32; // "Frequently used" emoji shown in the picker
+    const SUGGESTIONS = 8; // "@" / "#" suggestions shown above the reply box
     const CHANGE_BATCH_MS = 50; // changed chats are reported to the overlay at most this often
     const LISTS_BATCH_MS = 250; // a burst of list changes (e.g. many friends' statuses) is reported once
 
@@ -553,7 +564,7 @@
         }, LISTS_BATCH_MS);
     }
     const listStores = [C.ReadStateStore, C.PresenceStore, C.PrivateChannelSortStore, C.GuildStore,
-        C.GuildReadStateStore, C.UserGuildSettingsStore].filter(Boolean);
+        C.GuildReadStateStore, C.UserGuildSettingsStore, ActiveThreads, JoinedThreads, ArchivedThreads].filter(Boolean);
     window.__vesktopOverlayListsUnsub?.();
     try {
         for (const store of listStores) store.addChangeListener(listsChanged);
@@ -696,6 +707,108 @@
         return { frecent, custom };
     }
 
+    // Would Discord's sidebar list this channel (Browse Channels picks)? Previews stick to those.
+    const shownInSidebar = (guildId, channelId) => !C.UserGuildSettingsStore.isOptInEnabled?.(guildId)
+        || !!C.UserGuildSettingsStore.isChannelOrParentOptedIn?.(guildId, channelId);
+
+    // A server's channel list as Discord's own sidebar draws it: your Browse Channels picks, hidden muted
+    // channels and collapsed categories respected, in Discord's order. Category headings come as rows of their
+    // own ({kind: "category"}); joined threads follow their channel ({kind: "thread"}).
+    function sidebarRows(guildId) {
+        const gc = ChannelList.getGuild(guildId).guildChannels;
+        const out = [];
+        const showable = id => shownInSidebar(guildId, id);
+        gc.getSections().forEach((rows, section) => {
+            let cat;
+            try { cat = gc.getCategoryFromSection(section); } catch { return; } // (not a channel section)
+            const name = cat?.record ? cat.record.name
+                : section === gc.favoritesSectionNumber ? "Favorites" : null;
+            // A collapsed category still shows its heading (so it can be opened) if it has channels for you.
+            const collapsedWithChannels = cat?.record && cat.isCollapsed && Object.keys(cat.channels ?? {}).some(showable);
+            if (name && (rows > 0 || collapsedWithChannels)) {
+                out.push({ kind: "category", id: cat.record?.id ?? `section-${section}`, name, collapsed: !!cat.isCollapsed,
+                           canCollapse: !!cat.record });
+            }
+            for (let r = 0; r < rows; r++) {
+                let row;
+                try { row = gc.getChannelFromSectionRow(section, r); } catch { continue; }
+                const ch = row?.channel?.record;
+                const card = ch && sidebarCard(ch);
+                if (!card) continue;
+                out.push(card);
+                for (const id of row.channel.threadIds ?? []) {
+                    const thread = C.ChannelStore.getChannel(id);
+                    if (thread) out.push({ ...channelCard(thread, false), kind: "thread", parentId: ch.id });
+                }
+            }
+        });
+        return out;
+    }
+
+    function sidebarCard(ch) {
+        if (TEXT_TYPES.has(ch.type)) return channelCard(ch, true);
+        if (VOICE_TYPES.has(ch.type)) {
+            const { limit, full } = voiceInfo(ch);
+            return { ...channelCard(ch, false), voice: true, members: voiceMembers(ch), limit, full };
+        }
+        if (FORUM_TYPES.has(ch.type)) {
+            const newPosts = JoinedThreads?.getNewThreadCount?.(ch.guild_id, ch.id) ?? 0;
+            const card = channelCard(ch, false);
+            return { ...card, forum: true, newPosts, unread: card.unread || newPosts > 0 };
+        }
+        return null; // (directories and such: not shown)
+    }
+
+    // A forum's posts, most recent activity first: the active ones Vesktop has, plus older ones loaded so far.
+    const postsLoaded = (window.__vesktopOverlayPostsLoaded ??= new Set()); // forums whose older posts were asked for
+    function forumPosts(forumId) {
+        const forum = C.ChannelStore.getChannel(forumId);
+        if (!forum) return { posts: [], more: false };
+        const gid = forum.guild_id;
+        const ids = new Set(Object.keys(ActiveThreads?.getThreadsForParent?.(gid, forumId) ?? {}));
+        for (const id of ArchivedThreads?.getThreads?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING) ?? []) ids.add(id);
+        const posts = [...ids].map(id => C.ChannelStore.getChannel(id)).filter(Boolean)
+            .sort((a, b) => cmpSnowflake(b.lastMessageId ?? b.id, a.lastMessageId ?? a.id))
+            .map(t => {
+                const starter = C.UserStore.getUser(t.ownerId);
+                return {
+                    ...channelCard(t, false),
+                    kind: "post",
+                    unread: !!C.ReadStateStore.isForumPostUnread?.(t.id),
+                    isNew: !!C.ReadStateStore.isNewForumThread?.(t.id, forumId, gid),
+                    newCount: PostUnreadCounts?.getCount?.(t.id) ?? null,
+                    replies: Math.max(0, (t.messageCount ?? 1) - 1) || 0,
+                    starter: starter ? userName(starter, gid) : null,
+                    last: snowflakeTime(t.lastMessageId ?? t.id),
+                };
+            });
+        const more = !postsLoaded.has(forumId)
+            || !!ArchivedThreads?.getCanLoadMore?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING);
+        const loading = !!ArchivedThreads?.isLoading?.(forumId, POST_SORT, NO_TAGS, TAG_SETTING);
+        return { posts, more, loading };
+    }
+
+    // Marking read as Discord does: a forum as seen up to now (its "N new" posts), anything else up to its
+    // newest message; joined threads under it too.
+    function readStatesFor(ch) {
+        const out = [];
+        if (FORUM_TYPES.has(ch.type)) {
+            out.push({ channelId: ch.id, messageId: C.SnowflakeUtils.fromTimestamp(Date.now()), readStateType: 0 });
+        } else if (C.ReadStateStore.hasUnread(ch.id)) {
+            const messageId = C.ReadStateStore.lastMessageId?.(ch.id) ?? ch.lastMessageId;
+            if (messageId) out.push({ channelId: ch.id, messageId, readStateType: 0 });
+        }
+        const threads = JoinedThreads?.getActiveJoinedThreadsForParent?.(ch.guild_id, ch.id) ?? {};
+        for (const id of Object.keys(threads)) {
+            const thread = C.ChannelStore.getChannel(id);
+            if (thread && C.ReadStateStore.hasUnread(id)) {
+                const messageId = C.ReadStateStore.lastMessageId?.(id) ?? thread.lastMessageId;
+                if (messageId) out.push({ channelId: id, messageId, readStateType: 0 });
+            }
+        }
+        return out;
+    }
+
     // A voice channel's user limit (0: none) and whether it's full for you (moderators can still join).
     function voiceInfo(ch) {
         const limit = ch.type === 2 ? ch.userLimit ?? 0 : 0; // (stages count listeners differently)
@@ -706,10 +819,15 @@
 
     function headerFor(ch) {
         const guild = ch.guild_id ? C.GuildStore.getGuild(ch.guild_id) : null;
+        const parent = ch.isThread?.() ? C.ChannelStore.getChannel(ch.parent_id) : null;
+        const inForum = parent && FORUM_TYPES.has(parent.type);
+        const mark = parent ? (inForum ? "" : "↳ ") : VOICE_TYPES.has(ch.type) ? "🔊 " : "#";
         return {
             id: ch.id,
-            name: guild ? (VOICE_TYPES.has(ch.type) ? "🔊 " : "#") + ch.name : channelName(ch),
-            place: guild ? guild.name : ch.type === GROUP_DM ? "Group DM" : "Direct Message",
+            name: guild ? mark + ch.name : channelName(ch),
+            place: guild ? (parent ? `${guild.name} › ${inForum ? "" : "#"}${parent.name}` : guild.name)
+                : ch.type === GROUP_DM ? "Group DM" : "Direct Message",
+            forum: inForum ? { id: parent.id, name: parent.name } : null, // a forum post: the forum it's in
             icon: channelIcon(ch),
             guildId: guild?.id ?? null,
             voice: VOICE_TYPES.has(ch.type) ? voiceInfo(ch) : null, // a voice channel's chat
@@ -722,6 +840,8 @@
             const needs = {
                 "the chat list": [C.ChannelStore, C.PrivateChannelSortStore, C.GuildStore, C.GuildChannelStore,
                     C.ReadStateStore, C.UserGuildSettingsStore, C.PresenceStore, C.UserStore],
+                "server channels as Discord shows them": [ChannelList],
+                "forums and threads": [ActiveThreads, JoinedThreads, ArchivedThreads, ThreadActions, C.SnowflakeUtils],
                 "messages": [C.MessageStore, C.MessageActions, C.RestAPI, Markdown],
                 "sending messages": [Parser, U?.sendMessage],
                 "emoji": [EmojiData, EmojiUtils, C.EmojiStore],
@@ -758,7 +878,7 @@
         servers() {
             const out = [];
             for (const g of Object.values(C.GuildStore.getGuilds())) {
-                const channels = guildTextChannels(g.id);
+                const channels = guildTextChannels(g.id).filter(ch => shownInSidebar(g.id, ch.id));
                 let latest = null;
                 for (const ch of channels) {
                     if (!channelMuted(ch) && (!latest || cmpSnowflake(ch.lastMessageId, latest.lastMessageId) > 0)) latest = ch;
@@ -781,23 +901,102 @@
             return out;
         },
 
-        // One server's channels: text channels (unmuted first, then pings, then most recent activity), then its
-        // voice channels in the server's order, with who's in them.
+        // One server's channel list, as Discord's sidebar shows it (see sidebarRows). If a Discord update broke
+        // that, every channel you can see instead, in the server's order (health() reports it).
         channels(guildId) {
             watchedGuild = guildId;
-            const out = guildTextChannels(guildId).map(ch => channelCard(ch, true));
-            out.sort((a, b) => a.muted - b.muted || (b.mentions > 0) - (a.mentions > 0) || cmpSnowflake(b.lastId, a.lastId));
-            for (const ch of guildVoiceChannels(guildId)) {
-                const { limit, full } = voiceInfo(ch);
-                out.push({ ...channelCard(ch, false), voice: true, members: voiceMembers(ch), limit, full });
+            let rows;
+            try { rows = sidebarRows(guildId); } catch { rows = null; }
+            if (!rows) {
+                const all = C.GuildChannelStore.getChannels(guildId);
+                return [...(all.SELECTABLE ?? []), ...(all.VOCAL ?? [])].map(x => sidebarCard(x.channel)).filter(Boolean);
             }
-            return out;
+            // A heading with nothing under it (its channels are all kinds the overlay doesn't show): left out,
+            // unless it's collapsed (then it's how you open it).
+            return rows.filter((r, i) => r.kind !== "category" || r.collapsed
+                || (rows[i + 1] && rows[i + 1].kind !== "category"));
         },
 
-        // Everything the sidebar needs in one round trip; channels only when a server is open.
-        overview(guildId) {
+        // "@" suggestions in the reply box: people in this chat matching what's typed after the @ (names that
+        // start with it first; then recent speakers here first), as {name, username, avatar, insert}. The
+        // insert is "@username", which Discord's parser turns into a real mention when the message is sent.
+        suggestPeople(channelId, query) {
+            const ch = C.ChannelStore.getChannel(channelId);
+            if (!ch) return [];
+            const gid = ch.guild_id ?? null;
+            const ids = [];
+            const add = id => { if (id && !ids.includes(id)) ids.push(id); };
+            (C.MessageStore.getMessages(channelId)?.toArray?.() ?? []).slice().reverse().forEach(m => add(m.author?.id));
+            (ch.recipients ?? []).forEach(add);
+            if (gid) (C.GuildMemberStore.getMemberIds?.(gid) ?? []).forEach(add);
+            const q = query.toLowerCase();
+            const people = [];
+            for (const id of ids) {
+                const u = C.UserStore.getUser(id);
+                if (!u || id === myId()) continue;
+                const name = userName(u, gid);
+                const names = [name, u.username, u.globalName].filter(Boolean).map(n => n.toLowerCase());
+                const rank = names.some(n => n.startsWith(q)) ? 0 : names.some(n => n.includes(q)) ? 1 : -1;
+                if (rank < 0) continue;
+                people.push({ rank, kind: "person", id, name, username: u.username, insert: "@" + u.username + " ",
+                              avatar: absolute(u.getAvatarURL(gid ?? undefined, ICON_SIZE, false)) });
+                if (people.length >= 60) break; // (plenty to pick the best few from)
+            }
+            people.sort((a, b) => a.rank - b.rank); // (stable: recent speakers stay first within a rank)
+            const out = people.slice(0, SUGGESTIONS).map(({ rank, ...p }) => p);
+            const canPingAll = gid && C.PermissionStore?.can?.(C.PermissionsBits?.MENTION_EVERYONE, ch);
+            for (const special of canPingAll ? ["everyone", "here"] : []) {
+                if (special.startsWith(q)) out.push({ kind: "special", id: special, name: "@" + special,
+                                                      insert: "@" + special + " " });
+            }
+            return out.slice(0, SUGGESTIONS);
+        },
+
+        // "#" suggestions: this server's channels you can see, matching what's typed after the #, inserted as
+        // "#name" (Discord's parser turns it into a channel link).
+        suggestChannels(channelId, query) {
+            const ch = C.ChannelStore.getChannel(channelId);
+            if (!ch?.guild_id) return [];
+            const all = C.GuildChannelStore.getChannels(ch.guild_id);
+            const q = query.toLowerCase();
+            const found = [...(all.SELECTABLE ?? []), ...(all.VOCAL ?? [])].map(x => x.channel)
+                .map(c => ({ c, n: c.name.toLowerCase() }))
+                .filter(({ n }) => n.includes(q))
+                .sort((a, b) => b.n.startsWith(q) - a.n.startsWith(q));
+            return found.slice(0, SUGGESTIONS).map(({ c }) => ({
+                kind: "channel", id: c.id, name: c.name, insert: "#" + c.name + " ",
+                icon: VOICE_TYPES.has(c.type) ? "voice" : FORUM_TYPES.has(c.type) ? "forum" : "text",
+            }));
+        },
+
+        // A forum's posts (see forumPosts).
+        posts(forumId) { return forumPosts(forumId); },
+
+        // Load the next page of a forum's older posts from Discord (the overlay asks when you scroll to the end
+        // of the list, as Discord's app does). They arrive as a list change.
+        olderPosts(forumId) {
+            const forum = C.ChannelStore.getChannel(forumId);
+            if (!forum) return false;
+            const offset = postsLoaded.has(forumId)
+                ? ArchivedThreads.getNextOffset(forumId, POST_SORT, NO_TAGS, TAG_SETTING) : 0;
+            postsLoaded.add(forumId);
+            ThreadActions.loadArchivedThreads({ guildId: forum.guild_id, channelId: forumId, sortOrder: POST_SORT,
+                                                tagFilter: NO_TAGS, tagSetting: TAG_SETTING, offset });
+            return true;
+        },
+
+        // Collapse or expand a category, in Discord too (it's your Discord setting).
+        collapseCategory(categoryId, collapsed) {
+            C.FluxDispatcher.dispatch({ type: collapsed ? "CATEGORY_COLLAPSE" : "CATEGORY_EXPAND", id: categoryId });
+            return true;
+        },
+
+        // Everything the sidebar needs in one round trip; channels only when a server is open, posts only when
+        // one of its forums is.
+        overview(guildId, forumId) {
             watchedGuild = guildId ?? null;
-            return { friends: this.friends(), servers: this.servers(), channels: guildId ? this.channels(guildId) : null };
+            return { friends: this.friends(), servers: this.servers(), channels: guildId ? this.channels(guildId) : null,
+                     posts: forumId ? forumPosts(forumId) : null };
         },
 
         // Which conversation Vesktop currently shows, so the overlay can open on it.
@@ -930,27 +1129,20 @@
         // Mark a chat read up to its newest message, as Discord's client does when you look at it
         // (the same event Vencord's "read all" plugin sends). Returns whether anything was unread.
         // Mark every unread channel of a server read (right-click a server). Returns how many.
+        // Everything in a server you can see (picked in Browse Channels or not), forums and joined threads too.
         markServerRead(guildId) {
-            const channels = [...guildTextChannels(guildId), ...guildVoiceChannels(guildId)]
-                .filter(ch => C.ReadStateStore.hasUnread(ch.id))
-                .map(ch => ({ channelId: ch.id, messageId: C.ReadStateStore.lastMessageId?.(ch.id) ?? ch.lastMessageId,
-                              readStateType: 0 }))
-                .filter(c => c.messageId);
-            if (channels.length) C.FluxDispatcher.dispatch({ type: "BULK_ACK", context: "APP", channels });
-            return channels.length;
+            const all = C.GuildChannelStore.getChannels(guildId);
+            const channels = [...(all.SELECTABLE ?? []), ...(all.VOCAL ?? [])].map(x => x.channel);
+            const readStates = channels.flatMap(readStatesFor);
+            if (readStates.length) C.FluxDispatcher.dispatch({ type: "BULK_ACK", context: "APP", channels: readStates });
+            return readStates.length;
         },
 
         markRead(channelId) {
             const ch = C.ChannelStore.getChannel(channelId);
-            if (!ch || !C.ReadStateStore.hasUnread(channelId)) return false;
-            const messageId = C.ReadStateStore.lastMessageId?.(channelId) ?? ch.lastMessageId;
-            if (!messageId) return false;
-            C.FluxDispatcher.dispatch({
-                type: "BULK_ACK",
-                context: "APP",
-                channels: [{ channelId, messageId, readStateType: 0 }],
-            });
-            return true;
+            const readStates = ch ? readStatesFor(ch) : [];
+            if (readStates.length) C.FluxDispatcher.dispatch({ type: "BULK_ACK", context: "APP", channels: readStates });
+            return readStates.length > 0;
         },
 
         open(channelId) {

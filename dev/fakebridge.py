@@ -37,6 +37,7 @@ def msg(i, content, author="Friend 1", **extra):
 FRIENDS = [card(f"F{i}", f"Friend {i}") for i in range(1, 15)]
 SERVERS = [card("S1", "Fake Server", unread=True), card("S2", "Other Server")]
 CHANNELS = [card("C1", "general"), card("C2", "memes", unread=True)]
+POSTS = {}  # forum id -> {"posts": [...], "older": [...]} (older: what scrolling to the end loads, a page at a time)
 MESSAGES = [msg(i, f"message number {i}") for i in range(40)]
 OLDER = []  # what scrolling up loads, oldest first (served in batches like Discord)
 VOICE = {"mute": False, "deaf": False, "channel": None, "status": "online", "members": [], "custom": None,
@@ -68,8 +69,31 @@ def install(main, respond_extra=None):
         if method == "current":
             return {"id": "F1", "guildId": None}
         if method == "overview":
+            forum_id = args[1] if len(args) > 1 else None
             return {"friends": [dict(f) for f in FRIENDS], "servers": [dict(s) for s in SERVERS],
-                    "channels": [dict(c) for c in CHANNELS] if args and args[0] else None}
+                    "channels": [dict(c) for c in CHANNELS] if args and args[0] else None,
+                    "posts": posts(forum_id) if forum_id else None}
+        if method == "posts":
+            return posts(args[0])
+        if method == "olderPosts":  # like Discord: the next page arrives a moment later, as a list change
+            forum = POSTS[args[0]]
+            forum["loading"] = True
+
+            def arrive():
+                page, forum["older"] = forum["older"][:3], forum["older"][3:]
+                forum["posts"] = forum["posts"] + page
+                forum["loading"] = False
+                forum["loaded"] = True
+                push_lists()
+                return False
+            from vesktop_discord_overlay.gtk import GLib
+            GLib.timeout_add(150, arrive)
+            return True
+        if method == "collapseCategory":
+            for c in CHANNELS:
+                if c["id"] == args[0]:
+                    c["collapsed"] = args[1]
+            return True
         if method == "voice":
             return dict(VOICE)
         if method == "health":
@@ -142,6 +166,17 @@ def install(main, respond_extra=None):
         overlay = self
 
     main.Overlay.__init__ = init
+
+
+def posts(forum_id):
+    forum = POSTS.get(forum_id, {"posts": [], "older": []})
+    return {"posts": [dict(p) for p in forum["posts"]], "more": bool(forum["older"]),
+            "loading": forum.get("loading", False)}
+
+
+def post(pid, name, starter="Friend 1", replies=0, unread=False, new_count=None):
+    return dict(card(pid, name, unread=unread), kind="post", preview=None, starter=starter, replies=replies,
+                isNew=False, newCount=new_count)
 
 
 def find(message_id):

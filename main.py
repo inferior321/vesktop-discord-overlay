@@ -15,14 +15,17 @@ Options:
 
 Panel keys:
     Up/Down          browse the list (Up from the top goes to the search box)
-    Right            go in: a server opens its channels; a friend or channel opens its chat, ready to type
-    Left             back out: reply box (cursor at start) -> list -> close the chat -> leave the server
+    Right            go in: a server opens its channels, a forum its posts; a friend, channel, thread or post
+                     opens its chat, ready to type
+    Left             back out: reply box (cursor at start) -> list -> close the chat -> leave the forum -> leave
+                     the server
+    click a heading  collapse / expand that category of channels (in Discord too)
     Up/Down (reply)  scroll the messages; the top loads older ones
     type a letter    search the current tab (Down goes back to the list)
     Ctrl+Tab         switch between Friends and Servers
     Tab              list <-> the open chat's reply box (keeps draft, highlight and tab)
     Enter (reply)    send the message (in the search box: open the highlighted match)
-    : + two letters  emoji suggestions (Tab or Enter inserts one)
+    : + two letters  emoji suggestions (Tab or Enter inserts one); @ / # suggest people / channels
     Ctrl+V           with an image copied: attach it to your next message
     Esc              close what's on top (viewer, picker, suggestions, a question, an edit, a reply, a pasted
                      image, search text); otherwise close the panel

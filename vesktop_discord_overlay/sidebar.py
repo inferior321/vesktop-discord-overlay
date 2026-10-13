@@ -1,7 +1,11 @@
-"""The sidebar: Friends / Servers tabs, search, the card list and its keys."""
+"""The sidebar: Friends / Servers tabs, search, the card list and its keys.
 
+Levels on the Servers tab: servers → a server's channels (as Discord's sidebar shows them: categories, joined
+threads) → a forum's posts. → goes in, ← comes back out."""
+
+from .config import POSTS_LOAD_MARGIN
 from .gtk import Gdk, GLib
-from .widgets import CardRow, label, set_class
+from .widgets import CardRow, CategoryRow, set_class
 
 
 class SidebarMixin:
@@ -24,13 +28,17 @@ class SidebarMixin:
 
     def _refresh_lists(self):
         server_id = self.server["id"] if self.server else None
-        self._call("overview", server_id, on_ok=lambda data: self._on_overview(server_id, data), skip_if_busy=True)
+        forum_id = self.forum["id"] if self.forum else None
+        self._call("overview", server_id, forum_id, on_ok=lambda data: self._on_overview(server_id, forum_id, data),
+                   skip_if_busy=True)
 
-    def _on_overview(self, server_id, data):
+    def _on_overview(self, server_id, forum_id, data):
         self.friends = data["friends"]
         self.servers = data["servers"]
         if server_id == (self.server["id"] if self.server else None):
             self.channels = data["channels"] or []
+        if forum_id and forum_id == (self.forum["id"] if self.forum else None):
+            self._take_posts(data["posts"])
         if self.server and not self.server["name"]:
             self.server["name"] = next((s["name"] for s in self.servers if s["id"] == self.server["id"]), "")
         # Tab badges, like Discord's sidebar: a red number for pings (every unread DM message counts as one),
@@ -53,20 +61,27 @@ class SidebarMixin:
         elif self.server is None:
             self.back.hide()
             self._set_rows(self.servers, "server")
+        elif self.forum:
+            self.back_label.set_text(f"←  {self.forum['name']}")
+            self.back.show()
+            self._set_rows(self.posts, "post")
         else:
             self.back_label.set_text(f"←  {self.server['name']}")
             self.back.show()
             self._set_rows(self.channels, "channel")
 
     def _set_rows(self, items, kind):
-        key = (kind, self.server["id"] if kind == "channel" else None, tuple(i["id"] for i in items))
+        """kind: the list's kind; a channel list also holds category headings and threads (item["kind"])."""
+        in_server = kind in ("channel", "post")
+        key = (kind, self.server["id"] if in_server else None, self.forum["id"] if kind == "post" else None,
+               tuple(i["id"] for i in items))
         if key == self.list_key:
             for row, item in zip(self.rows, items):
                 row.update(item)
             self.listbox.invalidate_filter()
             return
         # Order or membership changed: re-add rows (reusing widgets), keeping highlight and scroll.
-        same_view = self.list_key is not None and self.list_key[:2] == key[:2]
+        same_view = self.list_key is not None and self.list_key[:3] == key[:3]
         highlighted = self._highlighted()
         highlighted_id = highlighted.data["id"] if highlighted else None
         scroll = self.list_scroll.get_vadjustment().get_value()
@@ -76,16 +91,18 @@ class SidebarMixin:
             self.listbox.remove(row)
         self.rows = []
         for item in items:
-            row = self.row_cache.get((kind, item["id"]))
+            row_kind = item.get("kind") or kind
+            row = self.row_cache.get((row_kind, item["id"]))
             if row is None:
-                row = self.row_cache[(kind, item["id"])] = CardRow(self.images, kind)
+                row = CategoryRow() if row_kind == "category" else CardRow(self.images, row_kind)
+                self.row_cache[(row_kind, item["id"])] = row
                 row.show_all()
             row.update(item)
             self.listbox.add(row)
             self.rows.append(row)
         self.list_key = key
         self.listbox.invalidate_filter()
-        if same_view:
+        if same_view and highlighted_id is not None:
             GLib.idle_add(self.list_scroll.get_vadjustment().set_value, scroll)
             self._highlight_id(highlighted_id)
         else:
@@ -96,19 +113,10 @@ class SidebarMixin:
     def _filter_row(self, row):
         return row.matches(self.search.get_text().lower().split())
 
-    def _row_heading(self, row, before):
-        """A "VOICE" heading above the first voice channel (a heading, not a row, so the arrows skip it)."""
-        first_voice = row.data.get("voice") and not (before and before.data.get("voice"))
-        if first_voice and row.get_header() is None:
-            heading = label("VOICE", "list-heading")
-            heading.show()
-            row.set_header(heading)
-        elif not first_voice and row.get_header() is not None:
-            row.set_header(None)
-
     def _visible_rows(self):
+        """The rows the arrows move through (category headings are skipped)."""
         terms = self.search.get_text().lower().split()
-        return [r for r in self.rows if r.matches(terms)]
+        return [r for r in self.rows if r.kind != "category" and r.matches(terms)]
 
     def _highlighted(self):
         return self.listbox.get_selected_row()
@@ -154,9 +162,16 @@ class SidebarMixin:
     def _activate(self, row):
         if row is None or row.data is None:
             return
+        if row.kind == "category":
+            self._toggle_category(row)
+            return
+        if row.data.get("forum"):
+            self._open_forum(row.data)
+            return
         if row.kind == "server":
             server_id = row.data["id"]
             self.server = {"id": server_id, "name": row.data["name"]}
+            self.forum = None
             self.channels = []
             self.search.set_text("")
             self._render_sidebar()
@@ -173,13 +188,82 @@ class SidebarMixin:
             self.channels = channels
             self._render_sidebar()
 
+    def _toggle_category(self, row):
+        """Click a heading: collapse / expand that category, here and in Discord (it's your Discord setting)."""
+        collapsed = not row.data["collapsed"]
+        row.update(dict(row.data, collapsed=collapsed))  # at once; the refreshed list follows
+        self._call("collapseCategory", row.data["id"], collapsed, on_ok=lambda _ok: self._refresh_lists(),
+                   on_err=self._show_error)
+
+    # ---------- forums ----------
+
+    def _open_forum(self, forum):
+        """A forum's posts, like a server's channels: → on a post opens it as a chat, ← comes back."""
+        self.forum = {"id": forum["id"], "name": forum["name"]}
+        self.posts, self.posts_more, self.posts_loading = [], False, False
+        self.search.set_text("")
+        self._render_sidebar()
+        self._drop_post_rows()  # (another forum's)
+        forum_id = forum["id"]
+        self._call("posts", forum_id, on_ok=lambda data: self._on_posts(forum_id, data))
+        self._focus_list()
+
+    def _on_posts(self, forum_id, data):
+        if self.forum and self.forum["id"] == forum_id:
+            self._take_posts(data)
+            self._render_sidebar()
+
+    def _take_posts(self, data):
+        self.posts = data["posts"]
+        self.posts_more, self.posts_loading = data["more"], data["loading"]
+
+    def _maybe_load_older_posts(self, *_):
+        """Near the end of a forum's list: ask Discord for older posts (they arrive as a list change), as
+        Discord's app does when you scroll a forum."""
+        if not self.forum or not self.posts_more or self.posts_loading or self.tab != "servers":
+            return False
+        rows = self._visible_rows()
+        last = rows[-1].get_allocation() if rows else None
+        if last is None or last.height <= 1:
+            return False  # not laid out yet (the scroll range's "changed" asks again once it is)
+        adj = self.list_scroll.get_vadjustment()
+        if last.y + last.height > adj.get_value() + adj.get_page_size() + POSTS_LOAD_MARGIN:
+            return False
+        self.posts_loading = True
+        self._call("olderPosts", self.forum["id"], on_err=self._show_error)
+        return False
+
+    def _leave_forum(self):
+        forum_id = self.forum["id"]
+        self.forum = None
+        self.search.set_text("")
+        self._render_sidebar()
+        self._drop_post_rows()
+        self._highlight_id(forum_id)
+        self._focus_list()
+
+    def _drop_post_rows(self):
+        """Forget the rows of posts no longer listed (big forums have hundreds; kept, they'd pile up)."""
+        listed = {id(row) for row in self.rows}
+        for key in [k for k, row in self.row_cache.items() if k[0] == "post" and id(row) not in listed]:
+            self.row_cache.pop(key).destroy()
+
+    def _go_up(self):
+        """The ← button above the list: out of a forum, else out of the server."""
+        if self.forum:
+            self._leave_forum()
+        else:
+            self._leave_server()
+
     def _leave_server(self):
         if not self.server:
             return
         server_id = self.server["id"]
         self.server = None
+        self.forum = None
         self.search.set_text("")
         self._render_sidebar()
+        self._drop_post_rows()
         self._highlight_id(server_id)
         self._focus_list()
 
@@ -195,13 +279,13 @@ class SidebarMixin:
         if event.button != 3:
             return False
         row = self.listbox.get_row_at_y(int(event.y))
-        if row is None or row.data is None:
+        if row is None or row.data is None or row.kind == "category":
             return False
         row_id = row.data["id"]
         if row.kind == "server":
             items = [("Mark as read", lambda: self._mark_server_read(row_id)),
                      ("Open in Vesktop", lambda: self._open_in_vesktop(server_id=row_id))]
-        else:  # a DM or a server's channel
+        else:  # a DM, a server's channel (forums too), a thread or a forum post
             items = [("Mark as read", lambda: self._mark_chat_read(row_id)),
                      ("Open in Vesktop", lambda: self._open_in_vesktop(channel_id=row_id))]
         return self._popup_menu(items, event)
@@ -246,10 +330,11 @@ class SidebarMixin:
         self.listbox.grab_focus()
 
     def _enter(self, row):
-        """Go one level deeper: a server opens its channels; a friend or channel opens its chat, ready to type."""
+        """Go one level deeper: a server opens its channels, a forum its posts; a friend, channel, thread or post
+        opens its chat, ready to type."""
         if row is None or row.data is None:
             return
-        if row.kind == "server":
+        if row.kind == "server" or row.data.get("forum"):
             self._activate(row)
             self._focus_list()
             return
@@ -259,13 +344,15 @@ class SidebarMixin:
         self.reply.set_position(-1)  # continue any draft at its end
 
     def _back(self):
-        """Go one level up: close the open chat first, then leave the server's channel list."""
+        """Go one level up: close the open chat first, then leave the forum, then the server's channel list."""
         in_this_view = self.channel_id and any(r.data["id"] == self.channel_id for r in self.rows)
         if in_this_view:
             highlighted = self._highlighted()
             self._close_conversation()
             if highlighted:
                 self._highlight(highlighted)
+        elif self.tab == "servers" and self.forum:
+            self._leave_forum()
         elif self.tab == "servers" and self.server:
             self._leave_server()
 

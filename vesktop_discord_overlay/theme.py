@@ -67,7 +67,10 @@ list.cards:focus row.card:selected {{ background: {SELECTED_FOCUS}; box-shadow: 
 .card-preview {{ color: #949ba4; font-size: {pt(9)}; }}
 .card-time {{ color: #6d6f78; font-size: {pt(8)}; }}
 .card-hash {{ color: #80848e; font-size: {pt(16)}; }}
-.list-heading {{ color: #949ba4; font-size: {pt(8)}; font-weight: 700; padding: 10px 16px 4px; }}
+.list-heading {{ color: #949ba4; font-size: {pt(8)}; font-weight: 700; }}
+row.category {{ padding: 12px 8px 3px 18px; background: transparent; }}
+row.category:hover .list-heading {{ color: #dbdee1; }}
+.new-count {{ color: #7984f5; font-size: {pt(8)}; font-weight: 700; }}
 .badge {{ background: #f23f43; color: white; border-radius: 9px; padding: 0 6px; font-size: {pt(8)}; font-weight: 700; }}
 .dot {{ color: #f2f3f5; font-size: {pt(7)}; }}
 
@@ -167,6 +170,7 @@ row.suggest-row {{ padding: 3px 10px; border-radius: 6px; }}
 row.suggest-row:selected {{ background: {SELECTED}; }}
 .suggest-char {{ font-size: {pt(15)}; }}
 .suggest-name {{ color: #dbdee1; }}
+.suggest-sub {{ color: #949ba4; font-size: {pt(9)}; }}
 button.voice.on {{ background: #f23f43; color: white; }}
 .user-bar {{ background: {SIDEBAR}; padding: 6px 8px; border-top: 1px solid {BORDER}; }}
 button.user-panel {{ background: transparent; background-image: none; border: none; border-radius: 6px;

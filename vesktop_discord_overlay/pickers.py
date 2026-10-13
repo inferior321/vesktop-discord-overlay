@@ -4,7 +4,7 @@ import math
 
 from .gtk import GLib, Gdk, GdkPixbuf, Gtk, HAVE_VIDEO, Pango, PangoCairo
 from .config import EMOJI_CELL, EMOJI_SEARCH_LIMIT, GIF_COLUMNS, GIF_SEARCH_DELAY_MS
-from .media import LoopingVideo, Picture, hex_rgb, rounded_rect_at
+from .media import Avatar, LoopingVideo, Picture, hex_rgb, rounded_rect_at
 from .theme import SELECTED, font
 from .widgets import add_class, label, set_class
 
@@ -533,7 +533,7 @@ class Picker(Gtk.Box):
 
 
 class Suggestions(Gtk.Box):
-    """The ':' emoji autocomplete list above the reply box."""
+    """The autocomplete list above the reply box: emoji for ':', people for '@', channels for '#'."""
 
     def __init__(self, media, on_accept):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
@@ -556,15 +556,30 @@ class Suggestions(Gtk.Box):
             row.item = item
             row.set_can_focus(False)
             box = Gtk.Box(spacing=10)
-            if "char" in item:
+            kind = item.get("kind")
+            if kind == "person":
+                face = Avatar(self.media, 22)
+                face.set(item["avatar"], item["name"][:1].upper())
+                box.pack_start(face, False, False, 0)
+                box.pack_start(label(item["name"], "suggest-name"), False, False, 0)
+                box.pack_start(label(item["username"], "suggest-sub"), False, False, 0)
+            elif kind in ("special", "channel"):
+                mark = "@" if kind == "special" else {"voice": "🔊", "forum": "💬"}.get(item["icon"], "#")
+                box.pack_start(label(mark, "suggest-char", xalign=0.5), False, False, 0)
+                box.pack_start(label(item["name"], "suggest-name"), False, False, 0)
+                if kind == "special":
+                    box.pack_start(label("notifies everyone" if item["id"] == "everyone" else
+                                         "notifies everyone online", "suggest-sub"), False, False, 0)
+            elif "char" in item:
                 box.pack_start(label(item["char"], "suggest-char", xalign=0.5), False, False, 0)
+                box.pack_start(label(f":{item['name']}:", "suggest-name"), False, False, 0)
             else:
                 pic = Picture(22, 22)
                 anim = self.media.image(item["url"], lambda a, p=pic: a and p.set_animation(a))
                 if anim:
                     pic.set_animation(anim)
                 box.pack_start(pic, False, False, 0)
-            box.pack_start(label(f":{item['name']}:", "suggest-name"), False, False, 0)
+                box.pack_start(label(f":{item['name']}:", "suggest-name"), False, False, 0)
             row.add(box)
             row.show_all()
             self.listbox.add(row)

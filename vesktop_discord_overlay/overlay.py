@@ -43,6 +43,9 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
 
         self.tab = "friends"
         self.server = None  # {"id", "name"} while drilled into a server
+        self.forum = None  # {"id", "name"} while drilled into one of its forums
+        self.posts = []  # that forum's posts
+        self.posts_more = self.posts_loading = False  # older posts to load / being loaded
         self.friends = []
         self.servers = []
         self.channels = []
@@ -53,6 +56,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.channel_id = None
         self.open_guild_id = None  # server of the open conversation, if any
         self.open_voice = None  # the open chat, if it is a voice channel's: {"id", "name"} (from its header)
+        self.open_forum = None  # the open chat, if it is a forum post: its forum, {"id", "name"}
         self.rendered_key = None
         self.stick_bottom = True
         self.drafts = {}
@@ -117,6 +121,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.emoji_catalog = None
         self.emoji_by_channel = {}
         self.suggestion_start = 0
+        self.suggest_request = None  # the "@" / "#" suggestions being looked up: (chat, mark, query)
 
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS.encode())
@@ -207,19 +212,21 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.back_label = label("", ellipsize=True)
         self.back.add(self.back_label)
         self.back_label.show()
-        self.back.connect("clicked", lambda *_: self._leave_server())
+        self.back.connect("clicked", lambda *_: self._go_up())
         side.pack_start(self.back, False, False, 0)
 
         self.listbox = add_class(Gtk.ListBox(), "cards")
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.set_can_focus(True)  # arrow-key navigation zone; see _list_key
         self.listbox.set_filter_func(self._filter_row)
-        self.listbox.set_header_func(self._row_heading)  # "VOICE" above a server's voice channels
         self.listbox.connect("row-activated", lambda _lb, row: self._activate(row))
         self.listbox.connect("button-press-event", self._list_menu)
         self.listbox.connect("row-selected", lambda *_: self._update_call_button())
         self.list_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
         self.list_scroll.add(self.listbox)
+        # A forum's older posts load near the end of its list: on scrolling, and once a short list is laid out.
+        for signal in ("value-changed", "changed"):
+            self.list_scroll.get_vadjustment().connect(signal, self._maybe_load_older_posts)
         side.pack_start(self.list_scroll, True, True, 4)
 
         # You, at the bottom of the sidebar like Discord's user panel: click to change your status.

@@ -4,6 +4,8 @@
 because they need a real Discord account, a real desktop or a fresh system. Run through them before a release,
 especially after Discord or Vesktop updates.
 
+First run `python3 dev/smoke_real.py` (read-only: checks every list, server and forum against your account).
+
 Use a chat with a friend who knows you're testing, or a server channel you own.
 
 ## On a real account
@@ -26,6 +28,13 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
       user limit (if you find one) shows e.g. 5/5 and a grey "… is full" button.
 - [ ] **Open in Vesktop:** right-click a friend, a channel and a server in the list → Open in Vesktop. Vesktop
       comes up on it with its message box focused.
+- [ ] **Server channels:** open a server that uses Browse Channels: the overlay lists the same channels and
+      categories as Discord's sidebar. Click a category heading: it collapses in Discord too. Right-click the
+      server → Mark as read: its unread dot (and forums' "new") clears.
+- [ ] **Forums:** → on a forum lists its posts; scroll to the end: older posts load. → on a post opens it;
+      reply there. ← goes back to the posts, then the channels.
+- [ ] **Mentions:** type `@` and part of a friend's name, pick them, send: it's a real mention (they're
+      pinged). In a server, `#` and part of a channel name: a clickable channel link.
 - [ ] **Read elsewhere:** read a chat on your phone or in Vesktop's window. Its unread dot in the panel clears
       within a second.
 - [ ] **Health:** after starting from the app menu, no "Discord changed something" notification appears.

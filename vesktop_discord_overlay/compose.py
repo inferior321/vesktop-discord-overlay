@@ -1,4 +1,5 @@
-"""The reply box: replies, edits, deleting, pasted images, sending, reactions, pickers and ':' suggestions."""
+"""The reply box: replies, edits, deleting, pasted images, sending, reactions, pickers and the ':' / '@' / '#'
+suggestions."""
 
 import base64
 import re
@@ -321,11 +322,17 @@ class ComposeMixin:
             self._call("startTyping", self.channel_id, on_err=lambda _exc: None)
 
     def _update_suggestions(self):
-        """Show emoji suggestions while typing :name (at least two letters after the colon)."""
+        """Suggestions above the reply box while typing: emoji for :name (two letters at least), people for
+        @name, the server's channels for #name (right after the @ / # already)."""
         if not self.reply.has_focus() or self.picker.get_visible():
             self.suggestions.hide()
             return
         before = self.reply.get_text()[:self.reply.get_position()]
+        mention = re.search(r"(?:^|\s)([@#])([^\s@#]*)$", before)
+        if mention and self.channel_id:
+            self._suggest_mentions(mention.group(1), mention.group(2), mention.start(1))
+            return
+        self.suggest_request = None
         match = re.search(r"(?:^|\s):([^\s:]{2,})$", before)
         if not match:
             self.suggestions.hide()
@@ -341,11 +348,25 @@ class ComposeMixin:
         else:
             self.suggestions.hide()
 
+    def _suggest_mentions(self, mark, query, start):
+        """Ask Vesktop who / which channels match (the answer is ignored if you've typed on meanwhile)."""
+        request = self.suggest_request = (self.channel_id, mark, query)
+
+        def got(items):
+            if request != self.suggest_request:
+                return
+            if items:
+                self.suggestion_start = start
+                self.suggestions.show_items(items)
+            else:
+                self.suggestions.hide()
+        self._call("suggestPeople" if mark == "@" else "suggestChannels", self.channel_id, query, on_ok=got)
+
     def _accept_suggestion(self, entry):
         if entry is None:
             return
         text, pos = self.reply.get_text(), self.reply.get_position()
-        insert = emoji_text(entry)
+        insert = entry["insert"] if "insert" in entry else emoji_text(entry)  # ("@username " / "#channel ")
         self.reply.set_text(text[:self.suggestion_start] + insert + text[pos:])
         self.suggestions.hide()
         self._focus_reply()

@@ -59,6 +59,13 @@ class HistoryMixin:
                 self.server = {"id": guild_id, "name": name}
                 self.channels = []
                 self._call("channels", guild_id, on_ok=lambda chans: self._on_channels(guild_id, chans))
+            forum = self.open_forum  # a forum post: shown among its forum's posts
+            if forum and (not self.forum or self.forum["id"] != forum["id"]):
+                self.forum = dict(forum)
+                self.posts = []
+                self._call("posts", forum["id"], on_ok=lambda data: self._on_posts(forum["id"], data))
+            elif not forum:
+                self.forum = None
         else:
             self.tab = "friends"
         self._update_tab_buttons()

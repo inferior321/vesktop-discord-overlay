@@ -33,6 +33,7 @@ class MessagesMixin:
         self._remember_scroll()
         self.channel_id = channel_id
         self.open_voice = None  # (known once it loads, unless it's in the server list open now)
+        self.open_forum = None
         self.jump_target = None
         self.open_guild_id = self.server["id"] if self.tab == "servers" and self.server else None
         if not from_history:
@@ -72,6 +73,7 @@ class MessagesMixin:
         self._remember_scroll()
         self.channel_id = None
         self.open_voice = None
+        self.open_forum = None
         self.open_guild_id = None
         self.rendered_key = None
         self.jump_target = None
@@ -133,6 +135,7 @@ class MessagesMixin:
         if data["guildId"]:
             self.open_guild_id = data["guildId"]
         self.open_voice = data.get("voice")  # a voice channel's chat: the bottom bar offers to join it
+        self.open_forum = data.get("forum")  # a forum post: the forum it's in (for Ctrl+Shift+Right)
         self._update_call_button()
         self.history_step = 0
         for entry in self.history:
