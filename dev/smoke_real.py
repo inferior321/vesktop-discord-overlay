@@ -1,8 +1,8 @@
 """Read-only check against your real, running Vesktop (port 9222), for before a release: runs every read-only
 bridge call over all your servers, channels and forums, checks the shape of each answer and how long it took,
 and prints only counts and timings: no names, no messages. It never sends, marks or joins anything, and loads
-nothing from Discord beyond what opening a server does in Discord's app (its active forum posts): no messages,
-no older posts.
+nothing from Discord beyond what looking at a server does in Discord's app (its active forum posts, the first
+page of a channel's member list): no messages, no older posts.
 
     python3 dev/smoke_real.py
 """
@@ -70,6 +70,10 @@ for server in servers:
                 need(post, KINDS["post"], "a post")
     text = next((r for r in rows if not r.get("kind") and not r.get("voice") and not r.get("forum")), None)
     if text:
+        members = call("members", text["id"])
+        need(members, {"rows", "total", "online", "members"}, "a member list")
+        for member in (m for m in members["rows"] if m and m["kind"] == "member"):
+            need(member, {"id", "name", "username", "status", "color", "activity"}, "a member")
         for query in ("", "a"):
             for method in ("suggestPeople", "suggestChannels"):
                 for item in call(method, text["id"], query):

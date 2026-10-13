@@ -31,6 +31,8 @@ client code; it never sees or stores your login token.
   connected" to see who's in the call and who's speaking; click your name at the bottom left to set Online /
   Idle / Do Not Disturb / Invisible, or a custom status (text, emoji, "Clear after"). All of it stays in sync
   with changes made in Discord itself, instantly.
+- **Server member lists**: click the server's name at the top of a server chat to see who's there, grouped
+  like Discord's, and message or mention anyone from it.
 - **Your friends' status**: their online dot, custom status or activity ("Playing Valorant") in the chat
   header, and in the list where there's no message preview.
 - **Keyboard-first**: the panel opens ready to type in the chat you were in, so replying is Ctrl+Shift+`,
@@ -54,13 +56,13 @@ client code; it never sees or stores your login token.
   only you use, that's no more risk than the programs you already run; on a shared computer, think twice.
 - **Discord updates can break it.** The overlay uses Discord's own internal code (through Vencord), which
   Discord changes without notice. After a Discord or Vesktop update, parts of the overlay, or all of it, may
-  stop working until it's updated to match. Version 1.5.1 was tested with Vesktop 1.6.7 (Flatpak) on Linux
+  stop working until it's updated to match. Version 1.6.0 was tested with Vesktop 1.6.7 (Flatpak) on Linux
   Mint 22.3 Cinnamon.
 - **What it connects to.** Everything Discord-related goes through Vesktop, and the overlay only asks Discord for
   something when you do something (open a chat, which also marks it read like Discord does; send, react, scroll
-  back, search GIFs, scroll a forum's older posts, join a call); it never makes requests on its own in the
-  background. Apart from that, the overlay downloads only the images, GIFs and thumbnails it shows (from
-  Discord's and YouTube's servers) and caches them in `~/.cache/vesktop-discord-overlay`.
+  back, search GIFs, scroll a forum's older posts, open a member list, join a call); it never makes requests on
+  its own in the background. Apart from that, the overlay downloads only the images, GIFs and thumbnails it shows
+  (from Discord's and YouTube's servers) and caches them in `~/.cache/vesktop-discord-overlay`.
 
 ## Requirements
 
@@ -177,6 +179,7 @@ if you want.
 | Ctrl+M / Ctrl+D | Mute / deafen |
 | Ctrl+Shift+D, or **Join** / **Disconnect** (bottom right) | Join the voice channel highlighted in the list, or whose chat you're typing in (greyed out if it's full); while in a call, leave it |
 | Click **Voice connected ▾** | Who's in your voice channel: speaking, muted, deafened (live); Esc or a click closes it |
+| In a server chat, click the server's name **▾** in the header | Its member list, like Discord's: role groups, online (and offline in small servers), with status, role colour and what each person is up to; more load as you scroll. Click someone: **Message** (your DM with them) or **Mention** (@them in the reply box) |
 | Your name and picture at the bottom left | Your status: click to pick Online, Idle, Do Not Disturb or Invisible, or **Set custom status…** (your custom status shows under your name) |
 | In the custom status pop-up | Type your status; 😀 or Ctrl+E picks an emoji (✕ removes it); choose **Clear after**; Enter or **Save** sets it, **Clear** removes it, Esc cancels |
 | ✎ beside a chat in the list | You left an unsent draft there |
@@ -228,6 +231,7 @@ name is reported in the log. The panel's opacity, size and place and your Ctrl+�
 | `launch.py` | What the menu/panel icon runs: starts Vesktop with the port, then the overlay |
 | `install.sh` | Checks / installs what's needed (Debian / Ubuntu / Mint), offers Vesktop, puts the program in `~/vesktop-discord-overlay`, adds the app-menu entry and icon |
 | `vesktop_discord_overlay/overlay.py` | The panel: window, layout, show / hide, keyboard, voice |
+| `vesktop_discord_overlay/members.py` | A server channel's member list (click the server's name in the chat header) |
 | `vesktop_discord_overlay/panel.py` | The panel's size and place: the ◢ (resize) and ✥ (move) grips, kept on screen |
 | `vesktop_discord_overlay/status.py` | You at the bottom left: your status and custom status (menu and pop-up) |
 | `vesktop_discord_overlay/sidebar.py` | Friends / Servers tabs, search, the list and its keys |

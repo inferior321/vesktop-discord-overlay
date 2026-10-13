@@ -192,6 +192,13 @@ button.voice:disabled .keycap {{ color: #6d6f78; }}
 .voice-channel {{ color: #b5bac1; font-size: {pt(8)}; }}
 popover.voice-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
 popover.custom-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
+popover.members-pop {{ background: {SIDEBAR}; border: 1px solid {SELECTED}; }}
+.members-title {{ color: #f2f3f5; font-weight: 700; }}
+.members-counts {{ color: #949ba4; font-size: {pt(8.5)}; }}
+.member-row {{ border-radius: 6px; }}
+.member-row:hover {{ background: {HOVER}; }}
+.member-name {{ color: #dbdee1; font-weight: 600; }}
+.member-activity {{ color: #949ba4; font-size: {pt(8)}; }}
 .custom-pop-title {{ color: #f2f3f5; font-weight: 700; }}
 .custom-pop-label {{ color: #949ba4; font-size: {pt(9)}; }}
 popover.custom-pop combobox button {{ background: {INPUT}; background-image: none; color: #dbdee1; border: none;

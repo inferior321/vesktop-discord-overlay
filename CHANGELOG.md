@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0
+
+- Server member lists: in a server chat, click the server's name (▾) in the header for the
+  channel's member list, like Discord's: role groups, then online (and offline in small servers), each person
+  with their status, role colour and what they're up to; more load as you scroll. Click someone to message them
+  (your DM opens in the overlay) or mention them (@them goes into the reply box).
+
 ## 1.5.1
 
 - The F1 shortcut list now closes when you click, anywhere (before, only Esc, F1 or hovering the ? did).

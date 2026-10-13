@@ -22,6 +22,9 @@
     const JoinedThreads = store("ActiveJoinedThreadsStore");
     const ArchivedThreads = store("ArchivedThreadsStore");
     const PostUnreadCounts = store("ForumPostUnreadCountStore");
+    const ChannelMembers = store("ChannelMemberStore"); // a channel's member list, as Discord's sidebar shows it
+    const MemberCounts = store("GuildMemberCountStore");
+    const PrivateChannels = find("getOrEnsurePrivateChannel");
     let StatusSetting = null;
     try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
     let CustomStatusSetting = null; // your custom status: { text, emojiId ("0": none), emojiName, expiresAtMs, ... }
@@ -46,6 +49,7 @@
     const PREVIEW_MAX_CHARS = 140;
     const FRECENT_EMOJI = 32; // "Frequently used" emoji shown in the picker
     const SUGGESTIONS = 8; // "@" / "#" suggestions shown above the reply box
+    const MEMBER_PAGE = 100; // Discord sends a channel's member list this many rows at a time
     const CHANGE_BATCH_MS = 50; // changed chats are reported to the overlay at most this often
     const LISTS_BATCH_MS = 250; // a burst of list changes (e.g. many friends' statuses) is reported once
 
@@ -571,6 +575,21 @@
         window.__vesktopOverlayListsUnsub = () => listStores.forEach(store => store.removeChangeListener(listsChanged));
     } catch { liveUpdatesOk = false; }
 
+    // A member list changed (someone came online, a page arrived): told separately, since in a big server it
+    // changes all the time; the overlay only re-reads it while its member pop-up is open.
+    let membersTimer = null;
+    const membersChanged = () => {
+        membersTimer ??= setTimeout(() => {
+            membersTimer = null;
+            window.__vesktopOverlayEvent?.(JSON.stringify({ type: "members" }));
+        }, LISTS_BATCH_MS);
+    };
+    window.__vesktopOverlayMembersUnsub?.();
+    try {
+        ChannelMembers?.addChangeListener(membersChanged);
+        window.__vesktopOverlayMembersUnsub = () => ChannelMembers?.removeChangeListener(membersChanged);
+    } catch { liveUpdatesOk = false; }
+
     // Mute / deafen, the voice channel you're in, your status, and you (for the user panel).
     // What a friend is up to, as Discord shows it: their custom status if they set one ("🍕 brb dinner"),
     // otherwise their activity ("Playing Valorant", "Listening to Spotify"), otherwise null.
@@ -772,6 +791,7 @@
 
     // A forum's posts, most recent activity first: the active ones Vesktop has, plus older ones loaded so far.
     const postsLoaded = (window.__vesktopOverlayPostsLoaded ??= new Set()); // forums whose older posts were asked for
+    const memberRequests = (window.__vesktopOverlayMemberRequests ??= new Map()); // channel -> member pages asked for
     function forumPosts(forumId) {
         const forum = C.ChannelStore.getChannel(forumId);
         if (!forum) return { posts: [], more: false };
@@ -855,6 +875,7 @@
                     C.ReadStateStore, C.UserGuildSettingsStore, C.PresenceStore, C.UserStore],
                 "server channels as Discord shows them": [ChannelList],
                 "forums and threads": [ActiveThreads, JoinedThreads, ArchivedThreads, ThreadActions, C.SnowflakeUtils],
+                "server member lists": [ChannelMembers, MemberCounts, PrivateChannels],
                 "messages": [C.MessageStore, C.MessageActions, C.RestAPI, Markdown],
                 "sending messages": [Parser, U?.sendMessage],
                 "emoji": [EmojiData, EmojiUtils, C.EmojiStore],
@@ -981,6 +1002,51 @@
                 kind: "channel", id: c.id, name: c.name, insert: "#" + c.name + " ",
                 icon: VOICE_TYPES.has(c.type) ? "voice" : FORUM_TYPES.has(c.type) ? "forum" : "text",
             }));
+        },
+
+        // The open channel's member list, like Discord's: role groups, then Online (and Offline in small
+        // servers), each person with their picture, status, role colour and what they're up to. Discord sends it
+        // a page at a time once you look at it (as its own member list does): this asks for the pages up to
+        // `upTo` rows; they arrive a moment later as a list change.
+        members(channelId, upTo = MEMBER_PAGE) {
+            const ch = C.ChannelStore.getChannel(channelId);
+            if (!ch?.guild_id || !ChannelMembers) return null;
+            const gid = ch.guild_id;
+            const last = Math.floor(Math.max(0, upTo - 1) / MEMBER_PAGE) * MEMBER_PAGE;
+            // Like Discord: always the first page, plus the one you've scrolled to and the next.
+            const ranges = [[0, MEMBER_PAGE - 1]];
+            for (const start of [last, last + MEMBER_PAGE]) {
+                if (start > 0) ranges.push([start, start + MEMBER_PAGE - 1]);
+            }
+            const key = channelId + ":" + JSON.stringify(ranges);
+            if (memberRequests.get(channelId) !== key) {
+                memberRequests.set(channelId, key);
+                C.FluxDispatcher.dispatch({ type: "GUILD_SUBSCRIPTIONS_CHANNEL", guildId: gid, channelId, ranges });
+            }
+            const props = ChannelMembers.getProps(gid, channelId);
+            const rows = (props?.rows ?? []).slice(0, upTo).map(r => {
+                if (!r) return null; // (not loaded yet)
+                if (r.type === "GROUP") {
+                    const group = props.groups.find(g => g.id === r.id);
+                    return { kind: "group", id: r.id, title: r.title, count: group?.count ?? null };
+                }
+                const u = C.UserStore.getUser(r.userId) ?? r.user;
+                return {
+                    kind: "member", id: r.userId,
+                    name: r.nick || u?.globalName || u?.username || "?",
+                    username: u?.username ?? null,
+                    avatar: u?.getAvatarURL ? absolute(u.getAvatarURL(gid, ICON_SIZE, false)) : null,
+                    status: r.status ?? "offline", color: r.colorString ?? null,
+                    activity: activityText(r.userId), owner: !!r.isOwner, bot: !!u?.bot,
+                };
+            });
+            return { rows, total: props?.rows?.length ?? 0,
+                     online: MemberCounts?.getOnlineCount?.(gid) ?? null, members: MemberCounts?.getMemberCount?.(gid) ?? null };
+        },
+
+        // Your DM with someone, started if you don't have one yet (as Discord's "Message" does): its channel id.
+        async openDM(userId) {
+            return await PrivateChannels.getOrEnsurePrivateChannel(userId);
         },
 
         // A forum's posts (see forumPosts).

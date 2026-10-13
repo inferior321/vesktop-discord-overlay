@@ -21,6 +21,7 @@ COLUMNS = [[
     ("Mouse", [
         ("Click media", "Full size / play YouTube"),
         ("Right-click", "React, edit, delete, open in Vesktop…"),
+        ("Click server ▾", "Its member list"),
         ("Click outside", "Close the panel"),
         ("Drag ◢ / ✥", "Resize / move (double-click: reset)"),
     ]),

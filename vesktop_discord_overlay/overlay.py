@@ -19,6 +19,7 @@ from .gtk import Gdk, GLib, Gtk, HAVE_WEBKIT, Pango, WebKit2
 from .history import HistoryMixin
 from .hotkey import HotkeyListener
 from .media import Avatar, MediaCache, Picture
+from .members import MembersMixin
 from .messages import MessagesMixin, message_box
 from .panel import PanelMixin
 from .pickers import Picker, Suggestions
@@ -32,7 +33,7 @@ from .viewer import Viewer
 from .widgets import add_class, fill_menu, label, pointer_inside, set_class, voice_person
 
 
-class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin, PanelMixin):
+class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin, PanelMixin, MembersMixin):
     """The panel: window, layout, show / hide, keyboard, voice. The rest lives in the mixins."""
 
     def __init__(self):
@@ -265,13 +266,24 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         # Every text here is cut short with "…" when it doesn't fit: a long name must never widen the window.
         self.header_name = label("", "header-name", ellipsize=True)
         self.header_place = label("", "header-place", ellipsize=True)
+        self.members_hint = label("▾", "header-place")  # (shown in server chats: the name opens the members)
+        self.members_hint.set_no_show_all(True)
+        place_row = Gtk.Box(spacing=4)
+        place_row.pack_start(self.header_place, False, True, 0)
+        place_row.pack_start(self.members_hint, False, False, 0)
+        # In a server chat, the server's name (with its ▾) opens the channel's member list (members.py).
+        place_events = self.members_target = Gtk.EventBox()
+        place_events.add(place_row)
+        place_events.set_halign(Gtk.Align.START)
+        place_events.connect("button-press-event", lambda _w, e: e.button == 1 and (self._toggle_members() or True))
         name_row.pack_start(self.header_name, False, True, 0)
-        name_row.pack_start(self.header_place, True, True, 0)
+        name_row.pack_start(place_events, True, True, 0)
         titles.pack_start(name_row, False, False, 0)
         self.typing = label("", "typing", ellipsize=True)
         titles.pack_start(self.typing, False, False, 0)
         header.pack_start(titles, True, True, 0)
         main.pack_start(header, False, False, 0)
+        self._build_members(place_events)  # its pop-up, under the server's name
 
         self.msg_box = message_box()
         self.msg_scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -663,6 +675,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.help.popdown()
         self.voice_pop.hide()  # at once (popdown() would animate on a hidden window and stay open)
         self.custom_pop.hide()
+        self.members_pop.hide()
         self.viewer.close()
         self.new_marker_for = None  # next time, show the NEW line for whatever is unread then
         for view in self.media_views:
@@ -698,6 +711,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
             for (kind, channel_id), row in self.row_cache.items():
                 if kind == "friend":
                     row.set_typing(channel_id in self.typing_now)
+        elif event.get("type") == "members":
+            self._on_members_changed()
         elif event.get("type") == "voice":
             self._voice_update(event)
         elif event.get("type") == "chats" and self.win.get_visible():

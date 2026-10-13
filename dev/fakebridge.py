@@ -37,6 +37,15 @@ def msg(i, content, author="Friend 1", **extra):
 FRIENDS = [card(f"F{i}", f"Friend {i}") for i in range(1, 15)]
 SERVERS = [card("S1", "Fake Server", unread=True), card("S2", "Other Server")]
 CHANNELS = [card("C1", "general"), card("C2", "memes", unread=True)]
+# A server channel's member list, like Discord's: role groups and Online, people in role colours.
+MEMBER_ROWS = ([{"kind": "group", "id": "mods", "title": "Moderators", "count": 2}]
+               + [{"kind": "member", "id": f"m{i}", "name": f"Mod {i}", "username": f"mod{i}", "avatar": None,
+                   "status": "online", "color": "#f0b232", "activity": "Playing Minecraft" if i == 1 else None,
+                   "owner": i == 1, "bot": False} for i in range(1, 3)]
+               + [{"kind": "group", "id": "online", "title": "Online", "count": 250}]
+               + [{"kind": "member", "id": f"u{i}", "name": f"Member {i}", "username": f"member{i}", "avatar": None,
+                   "status": ["online", "idle", "dnd"][i % 3], "color": None, "activity": None, "owner": False,
+                   "bot": i == 7} for i in range(1, 251)])
 POSTS = {}  # forum id -> {"posts": [...], "older": [...]} (older: what scrolling to the end loads, a page at a time)
 MESSAGES = [msg(i, f"message number {i}") for i in range(40)]
 OLDER = []  # what scrolling up loads, oldest first (served in batches like Discord)
@@ -75,6 +84,14 @@ def install(main, respond_extra=None):
                     "posts": posts(forum_id) if forum_id else None}
         if method == "posts":
             return posts(args[0])
+        if method == "members":  # (server channels only; Discord sends the pages asked for)
+            if not args[0].startswith("C"):
+                return None
+            up_to = args[1] if len(args) > 1 else 100
+            return {"rows": [dict(r) for r in MEMBER_ROWS[:up_to]], "total": len(MEMBER_ROWS), "online": 1234,
+                    "members": 5678}
+        if method == "openDM":
+            return "F2"
         if method == "olderPosts":  # like Discord: the next page arrives a moment later, as a list change
             forum = POSTS[args[0]]
             forum["loading"] = True

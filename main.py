@@ -33,6 +33,7 @@ Panel keys:
     Ctrl+Shift+D     join the voice channel highlighted in the list, or whose chat you're typing in; in a call,
                      leave it (also the Join / Disconnect button)
     Voice connected  (click it) who's in your voice channel and who's speaking
+    server name ▾    (in a server chat's header, click it) its member list; click someone: Message / Mention
     Ctrl+Up / Down   panel opacity (5% steps, 30% minimum, remembered)
     drag ◢ / ✥      (bottom / top right corner) resize / move the panel, kept whole on its screen and clear of
                      the taskbar; remembered (double-click: default size / back to the centre)

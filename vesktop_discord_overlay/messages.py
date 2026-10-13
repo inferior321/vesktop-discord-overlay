@@ -31,6 +31,7 @@ class MessagesMixin:
         self._cancel_edit()  # before saving the draft, so the draft is your own text, not the edit
         self._save_draft()
         self._remember_scroll()
+        self.members_pop.popdown()  # (another chat: another member list)
         self.channel_id = channel_id
         self.open_voice = None  # (known once it loads, unless it's in the server list open now)
         self.open_forum = None
@@ -74,6 +75,7 @@ class MessagesMixin:
         self.channel_id = None
         self.open_voice = None
         self.open_forum = None
+        self.members_pop.popdown()
         self.open_guild_id = None
         self.rendered_key = None
         self.jump_target = None
@@ -511,6 +513,13 @@ class MessagesMixin:
     def _set_header(self, name, place, icon, rounded=False):
         self.header_name.set_text(name)
         self.header_place.set_text(place)
+        # In a server chat its name opens the member list: say so (a ▾, a hand, a tooltip).
+        server = self._can_show_members()
+        self.members_hint.set_visible(server)
+        target = self.members_target
+        target.set_tooltip_text("Members" if server else None)
+        if target.get_window():
+            target.get_window().set_cursor(Gdk.Cursor.new_from_name(target.get_display(), "pointer") if server else None)
         self.header_avatar.rounded_square = rounded
         self.header_avatar.set(icon, name.lstrip("#@🔊 ")[:1].upper(), self._friend_status())
         self._update_header_line()
