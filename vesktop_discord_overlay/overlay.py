@@ -30,7 +30,7 @@ from .preflight import tell
 from .system import activate_vesktop_window, other_vesktop_running, run_quiet, vesktop_running
 from .theme import CSS
 from .viewer import Viewer
-from .widgets import add_class, fill_menu, label, pointer_inside, set_class, voice_person
+from .widgets import TypingDots, add_class, fill_menu, label, pointer_inside, set_class, voice_person
 
 
 class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMixin, PanelMixin, MembersMixin):
@@ -45,6 +45,7 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.tab = "friends"
         self.server = None  # {"id", "name"} while drilled into a server
         self.forum = None  # {"id", "name"} while drilled into one of its forums
+        self.mute_timer = self.mute_timer_for = None  # refreshes the lists when the soonest timed mute ends
         self.posts = []  # that forum's posts
         self.posts_more = self.posts_loading = False  # older posts to load / being loaded
         self.friends = []
@@ -279,8 +280,8 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         name_row.pack_start(self.header_name, False, True, 0)
         name_row.pack_start(place_events, True, True, 0)
         titles.pack_start(name_row, False, False, 0)
-        self.typing = label("", "typing", ellipsize=True)
-        titles.pack_start(self.typing, False, False, 0)
+        self.header_line = label("", "header-line", ellipsize=True)  # (in a DM) their custom status / activity
+        titles.pack_start(self.header_line, False, False, 0)
         header.pack_start(titles, True, True, 0)
         main.pack_start(header, False, False, 0)
         self._build_members(place_events)  # its pop-up, under the server's name
@@ -303,10 +304,24 @@ class Overlay(SidebarMixin, MessagesMixin, ComposeMixin, HistoryMixin, StatusMix
         self.jump_pill.set_can_focus(False)
         self.jump_pill.set_halign(Gtk.Align.CENTER)
         self.jump_pill.set_valign(Gtk.Align.END)
-        self.jump_pill.set_margin_bottom(10)
+        self.jump_pill.set_margin_bottom(26)  # (above the typing line's spot)
         self.jump_pill.set_no_show_all(True)
         self.jump_pill.connect("clicked", self._jump_to_newest)
         layer.add_overlay(self.jump_pill)
+        # "… is typing" with pulsing dots, just above the reply box, like Discord (in the space kept free below
+        # the last message, so it never covers one).
+        self.typing_bar = add_class(Gtk.Box(spacing=6), "typing-bar")
+        self.typing_bar.pack_start(TypingDots(), False, False, 0)
+        self.typing_label = label("", "typing", ellipsize=True)
+        self.typing_bar.pack_start(self.typing_label, False, True, 0)
+        self.typing_bar.set_halign(Gtk.Align.START)
+        self.typing_bar.set_valign(Gtk.Align.END)
+        self.typing_bar.set_margin_start(16)
+        self.typing_bar.show_all()
+        self.typing_bar.set_no_show_all(True)
+        self.typing_bar.hide()
+        layer.add_overlay(self.typing_bar)
+        layer.set_overlay_pass_through(self.typing_bar, True)  # (clicks go to the messages under it)
         self.suggestions = Suggestions(self.images, self._accept_suggestion)
         self.suggestions.set_margin_start(16)
         self.suggestions.set_margin_bottom(6)

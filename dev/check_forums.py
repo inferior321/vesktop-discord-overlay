@@ -89,8 +89,8 @@ def collapsed(o):
     assert row(o, "K1").arrow.get_text() == "▸", "collapsed (in Discord too)"
     assert menu_items(o, row(o, "K1")) == [], "no menu on a heading"
     items = menu_items(o, row(o, "F1"))
-    assert items == ["Mark as read", "Open in Vesktop"], items
-    print("clicking a heading collapses it (sent to Discord); forums: Mark as read / Open in Vesktop", flush=True)
+    assert items == ["Mark as read", "Mute channel", "Open in Vesktop"], items
+    print("clicking a heading collapses it (sent to Discord); forums: Mark as read / Mute / Open in Vesktop", flush=True)
     o._highlight(row(o, "F1"))
     o._list_key("Right", None)
 

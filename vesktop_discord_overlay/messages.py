@@ -61,7 +61,7 @@ class MessagesMixin:
         else:
             self._render_info("Loading…")
         self.typing_text = ""
-        self.typing.set_text("")
+        self.typing_bar.hide()
         self._update_draft_marks()
         self._update_call_button()  # a voice channel's chat: Join it from the bottom bar
         self._load_messages()
@@ -519,7 +519,8 @@ class MessagesMixin:
         target = self.members_target
         target.set_tooltip_text("Members" if server else None)
         if target.get_window():
-            target.get_window().set_cursor(Gdk.Cursor.new_from_name(target.get_display(), "pointer") if server else None)
+            hand = Gdk.Cursor.new_from_name(target.get_display(), "pointer") if server else None
+            target.get_window().set_cursor(hand)
         self.header_avatar.rounded_square = rounded
         self.header_avatar.set(icon, name.lstrip("#@🔊 ")[:1].upper(), self._friend_status())
         self._update_header_line()
@@ -551,16 +552,13 @@ class MessagesMixin:
         else:
             text = "Several people are typing…"
         self.typing_text = text
-        self._update_header_line()
+        self.typing_label.set_text(text)
+        self.typing_bar.set_visible(bool(text))  # (just above the reply box, with pulsing dots)
 
     def _update_header_line(self):
-        """The line under the chat's name: "… is typing" while someone types, otherwise (in a DM) the friend's
-        custom status or activity, like Discord."""
+        """The line under the chat's name: (in a DM) the friend's custom status or activity, like Discord."""
         card = self._friend_card()
-        activity = (card or {}).get("activity") or ""
-        typing = self.typing_text
-        self.typing.set_text(typing or activity)
-        set_class(self.typing, "activity", not typing and bool(activity))
+        self.header_line.set_text((card or {}).get("activity") or "")
 
     def _keep_bottom(self, adj):
         if self.anchor and time.monotonic() < self.anchor[2]:
@@ -783,4 +781,4 @@ class MessagesMixin:
 def message_box():
     """The box holding the open chat's messages."""
     return Gtk.Box(orientation=Gtk.Orientation.VERTICAL, margin_start=16, margin_end=16, margin_top=6,
-                   margin_bottom=10)
+                   margin_bottom=24)  # (room at the bottom for the "… is typing" line)

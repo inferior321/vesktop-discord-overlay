@@ -45,7 +45,7 @@ Panel keys:
     Ctrl+Shift+`     toggle the panel (opens ready to type in the open chat)
     click an image   open it full size (or reveal a spoiler); clicking outside the panel closes it
     click a YouTube thumbnail  play it inline (Esc back to the panel; hiding the panel stops it)
-    right-click      a chat in the list: Open in Vesktop, Mark as read;
+    right-click      a chat in the list: Mark as read, Mute / Unmute (servers, channels, DMs), Open in Vesktop;
                      a message: Reply, Add reaction, Edit / Delete (yours), Copy, Open in Vesktop
     click a reaction add yours, or remove it if it's already yours
     click a ↳ quote  go to the message it replies to

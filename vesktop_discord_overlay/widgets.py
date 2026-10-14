@@ -3,8 +3,8 @@
 import time
 from datetime import datetime
 
-from .gtk import Gdk, Gtk, Pango
-from .config import CARD_AVATAR, VOICE_AVATAR
+from .gtk import Gdk, GLib, Gtk, Pango
+from .config import CARD_AVATAR, TYPING_DOTS_MS, VOICE_AVATAR
 from .media import Avatar
 
 def add_class(widget, *names):
@@ -48,7 +48,8 @@ def copy_to_clipboard(text):
 
 
 def fill_menu(menu, items, markup=False):
-    """Add menu items: (text, action), (text, action, "danger") for a red one, or None for a dividing line."""
+    """Add menu items: (text, action), (text, action, "danger") for a red one, (text, [items]) for a submenu,
+    or None for a dividing line."""
     for entry in items:
         if entry is None:
             menu.append(Gtk.SeparatorMenuItem())
@@ -58,7 +59,12 @@ def fill_menu(menu, items, markup=False):
         text_label = Gtk.Label(xalign=0)
         text_label.set_markup(text) if markup else text_label.set_text(text)
         item.add(text_label)
-        item.connect("activate", lambda _i, action=action: action())
+        if isinstance(action, list):
+            submenu = Gtk.Menu()
+            fill_menu(submenu, action, markup)
+            item.set_submenu(submenu)
+        else:
+            item.connect("activate", lambda _i, action=action: action())
         menu.append(item)
     menu.show_all()
 
@@ -125,6 +131,41 @@ def voice_person(images, person):
     if state:
         row.pack_start(add_class(label(state, "voice-state"), state), False, False, 0)
     return row
+
+
+class TypingDots(Gtk.DrawingArea):
+    """Three dots pulsing in turn, like Discord's typing indicator (and the dots on a typing friend's picture)."""
+
+    SIZE, GAP = 6, 4
+
+    def __init__(self):
+        super().__init__()
+        self.frame = 0
+        self.timer = None
+        self.set_size_request(3 * self.SIZE + 2 * self.GAP, self.SIZE + 2)
+        self.set_valign(Gtk.Align.CENTER)
+        self.connect("draw", self._draw)
+        self.connect("map", lambda *_: self._run(True))
+        self.connect("unmap", lambda *_: self._run(False))
+
+    def _run(self, on):
+        if on and self.timer is None:
+            self.timer = GLib.timeout_add(TYPING_DOTS_MS, self._tick)
+        elif not on and self.timer is not None:
+            GLib.source_remove(self.timer)
+            self.timer = None
+
+    def _tick(self):
+        self.frame = (self.frame + 1) % 3
+        self.queue_draw()
+        return True
+
+    def _draw(self, _widget, cr):
+        r = self.SIZE / 2
+        for i in range(3):
+            cr.set_source_rgba(0.86, 0.87, 0.88, 1.0 if i == self.frame else 0.35)
+            cr.arc(r + i * (self.SIZE + self.GAP), r + 1, r, 0, 6.2832)
+            cr.fill()
 
 
 def grey_icon(icon_name, fallback):

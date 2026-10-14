@@ -126,7 +126,7 @@ def opened_voice_chat(o):
 def join(o):
     for cid in ("C1", "V1"):
         items = menu_items(o, row(o, cid))
-        assert items == ["Mark as read", "Open in Vesktop"], f"right-click has no Join ({cid}: {items})"
+        assert items == ["Mark as read", "Mute channel", "Open in Vesktop"], f"right-click has no Join ({cid}: {items})"
     o._highlight(row(o, "C1"))
     assert button(o) == ("Join Lounge", True), f"its chat is still open: Join stays ({button(o)})"
     o._on_key(o.win, key_event("d", ctrl=True, shift=True))

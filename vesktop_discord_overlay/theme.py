@@ -77,8 +77,9 @@ row.category:hover .list-heading {{ color: #dbdee1; }}
 .header {{ padding: 10px 16px; border-bottom: 1px solid {BORDER}; }}
 .header-name {{ color: #f2f3f5; font-weight: 700; font-size: {pt(12)}; }}
 .header-place {{ color: #949ba4; font-size: {pt(9)}; }}
-.typing {{ color: #949ba4; font-size: {pt(9)}; font-style: italic; }}
-.typing.activity {{ font-style: normal; }}
+.header-line {{ color: #949ba4; font-size: {pt(9)}; }}
+.typing {{ color: #dbdee1; font-size: {pt(8.5)}; }}
+.typing-bar {{ padding: 0 0 4px 0; }}
 .card-preview.activity {{ color: #6d6f78; }}
 
 .msg-author {{ color: #f2f3f5; font-weight: 600; }}

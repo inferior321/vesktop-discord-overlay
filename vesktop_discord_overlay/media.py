@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .gtk import GLib, Gdk, GdkPixbuf, Gst, Gtk, HAVE_VIDEO, HAVE_WEBKIT, Pango, PangoCairo, WebKit2
 from .config import (CACHE_DIR, CACHE_MAX_AGE_DAYS, MAX_DOWNLOAD, MEDIA_MAX_H, MEDIA_MAX_W, MEDIA_MEMORY_LARGE,
-                     MEDIA_SMALL_PX, STICKER_SIZE, YOUTUBE_MAX_H, YOUTUBE_MAX_W)
+                     MEDIA_SMALL_PX, STICKER_SIZE, TYPING_DOTS_MS, YOUTUBE_MAX_H, YOUTUBE_MAX_W)
 from .theme import ACCENT, SIDEBAR, STATUS_COLORS, font
 
 class MediaCache:
@@ -150,7 +150,7 @@ class Avatar(Gtk.DrawingArea):
             return
         self.typing = typing
         if typing and self.typing_timer is None:
-            self.typing_timer = GLib.timeout_add(280, self._typing_tick)
+            self.typing_timer = GLib.timeout_add(TYPING_DOTS_MS, self._typing_tick)
         elif not typing and self.typing_timer is not None:
             GLib.source_remove(self.typing_timer)
             self.typing_timer = None

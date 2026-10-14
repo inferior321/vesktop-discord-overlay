@@ -39,7 +39,7 @@ def shown(o):
             out.append(child.get_text())
         else:
             texts = child.get_child().get_children()[1].get_children()
-            out.append(" | ".join(t.get_text() for t in texts))
+            out.append(" | ".join(t.get_text() for t in texts if t.get_visible()))
     return out
 
 

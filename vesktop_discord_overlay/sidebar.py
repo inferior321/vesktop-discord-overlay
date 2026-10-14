@@ -3,9 +3,36 @@
 Levels on the Servers tab: servers → a server's channels (as Discord's sidebar shows them: categories, joined
 threads) → a forum's posts. → goes in, ← comes back out."""
 
-from .config import POSTS_LOAD_MARGIN
+import time
+from datetime import datetime
+
+from .config import MUTE_END_SLACK_MS, POSTS_LOAD_MARGIN
 from .gtk import Gdk, GLib
 from .widgets import CardRow, CategoryRow, set_class
+
+# How long "Mute ▸" mutes for, as Discord offers it (seconds; -1: until you unmute).
+MUTE_FOR = [("For 15 minutes", 900), ("For 1 hour", 3600), ("For 3 hours", 3 * 3600), ("For 8 hours", 8 * 3600),
+            ("For 24 hours", 24 * 3600), ("Until I turn it back on", -1)]
+
+
+def mute_end_time(iso):
+    """A mute's end as a timestamp (None for none or an unreadable one)."""
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() if iso else None
+    except ValueError:
+        return None
+
+
+def mute_until(iso):
+    """'until 18:30' (today) or 'until Oct 15, 18:30' for a mute's end; '' for one with no end."""
+    if not iso:
+        return ""
+    try:
+        end = datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone()
+    except ValueError:
+        return ""
+    same_day = end.date() == datetime.now().astimezone().date()
+    return f" (until {end:%H:%M})" if same_day else f" (until {end:%b} {end.day}, {end:%H:%M})"
 
 
 class SidebarMixin:
@@ -42,10 +69,10 @@ class SidebarMixin:
         if self.server and not self.server["name"]:
             self.server["name"] = next((s["name"] for s in self.servers if s["id"] == self.server["id"]), "")
         # Tab badges, like Discord's sidebar: a red number for pings (every unread DM message counts as one),
-        # otherwise a white dot if anything unmuted is unread.
-        counts = {"friends": sum(f["mentions"] for f in self.friends),
+        # otherwise a white dot if anything unmuted is unread. Muted DMs and servers don't count.
+        counts = {"friends": sum(f["mentions"] for f in self.friends if not f["muted"]),
                   "servers": sum(s["mentions"] for s in self.servers if not s["muted"])}
-        unread = {"friends": any(f["unread"] for f in self.friends),
+        unread = {"friends": any(f["unread"] for f in self.friends if not f["muted"]),
                   "servers": any(s["unread"] for s in self.servers if not s["muted"])}
         for key, badge in self.tab_badges.items():
             badge.set_text(str(counts[key]))
@@ -53,6 +80,7 @@ class SidebarMixin:
             self.tab_dots[key].set_visible(counts[key] == 0 and unread[key])
         self._render_sidebar()
         self._update_header_status()  # the open DM's status dot in the header
+        self._watch_mute_ends()
 
     def _render_sidebar(self):
         if self.tab == "friends":
@@ -284,11 +312,47 @@ class SidebarMixin:
         row_id = row.data["id"]
         if row.kind == "server":
             items = [("Mark as read", lambda: self._mark_server_read(row_id)),
+                     self._mute_item("server", row.data, "server"),
                      ("Open in Vesktop", lambda: self._open_in_vesktop(server_id=row_id))]
         else:  # a DM, a server's channel (forums too), a thread or a forum post
-            items = [("Mark as read", lambda: self._mark_chat_read(row_id)),
-                     ("Open in Vesktop", lambda: self._open_in_vesktop(channel_id=row_id))]
+            items = [("Mark as read", lambda: self._mark_chat_read(row_id))]
+            if row.kind in ("friend", "channel"):  # (threads and posts follow their channel, as in Discord)
+                noun = "channel" if row.kind == "channel" else "conversation"
+                items.append(self._mute_item("channel", row.data, noun))
+            items.append(("Open in Vesktop", lambda: self._open_in_vesktop(channel_id=row_id)))
         return self._popup_menu(items, event)
+
+    def _mute_item(self, kind, data, noun):
+        """'Mute <noun> ▸' with how long, or 'Unmute <noun> (until 18:30)' when it's muted itself (a channel
+        dimmed only because its server is muted still offers Mute)."""
+        muted = data.get("muted") if kind == "server" else data.get("mutedSelf")
+        row_id = data["id"]
+        if muted:
+            return (f"Unmute {noun}{mute_until(data.get('muteEnds'))}", lambda: self._set_muted(kind, row_id, None))
+        durations = [(text, lambda s=seconds: self._set_muted(kind, row_id, s)) for text, seconds in MUTE_FOR]
+        return (f"Mute {noun}", durations)
+
+    def _watch_mute_ends(self):
+        """Refresh the lists the moment the soonest timed mute ends, so that row un-dims right then (Discord
+        unmutes it quietly; otherwise it would show at the next routine check)."""
+        now = time.time()
+        ends = [end for end in (mute_end_time(card.get("muteEnds"))
+                                for card in self.friends + self.servers + self.channels) if end and end > now]
+        soonest = min(ends, default=None)
+        if soonest == self.mute_timer_for:
+            return
+        if self.mute_timer:
+            GLib.source_remove(self.mute_timer)
+        self.mute_timer, self.mute_timer_for = None, soonest
+        if soonest:
+            def ended():
+                self.mute_timer = self.mute_timer_for = None
+                self._refresh_lists()
+                return False
+            self.mute_timer = GLib.timeout_add(int((soonest - now) * 1000) + MUTE_END_SLACK_MS, ended)
+
+    def _set_muted(self, kind, row_id, seconds):
+        self._call("setMuted", kind, row_id, seconds, on_ok=lambda _ok: self._refresh_lists(), on_err=self._show_error)
 
     # ---------- list keys ----------
 

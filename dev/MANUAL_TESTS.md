@@ -44,6 +44,8 @@ Use a chat with a friend who knows you're testing, or a server channel you own.
       Close and reopen it: same place. Double-click the ✥: back to the centre.
 - [ ] **Member list:** in a server chat, click the server's name (▾) in the header: its members, grouped like
       Discord's; scroll down: more load. Click someone → Mention: @them in the reply box; → Message: your DM.
+- [ ] **Mute:** right-click a server → Mute server ▸ For 15 minutes: it dims, here and in Vesktop; the menu now
+      says 'Unmute server (until …)'. Unmute it. Same for a channel and a DM.
 - [ ] **Read elsewhere:** read a chat on your phone or in Vesktop's window. Its unread dot in the panel clears
       within a second.
 - [ ] **Health:** after starting from the app menu, no "Discord changed something" notification appears.

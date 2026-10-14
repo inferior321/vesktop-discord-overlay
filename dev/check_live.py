@@ -104,17 +104,19 @@ def activity_set(o):
 
 
 def activity_shown(o):
-    header = o.typing.get_text()
+    header = o.header_line.get_text()
     row = o.row_cache[("friend", "F7")]
     listed = row.preview.get_text() if row.preview.get_visible() else ""
     dim = row.preview.get_style_context().has_class("activity")
     print(f"header under Friend 5's name: {header!r}; list line for Friend 7 (no preview): {listed!r} (dim {dim})",
           flush=True)
     assert header == "🍕 brb dinner" and listed == "Playing Valorant" and dim
-    o._set_typing(["Friend 5"])  # typing takes the line over...
-    assert o.typing.get_text() == "Friend 5 is typing…"
-    o._set_typing([])  # ...and gives it back
-    assert o.typing.get_text() == "🍕 brb dinner"
+    o._set_typing(["Friend 5"])  # typing shows just above the reply box; the header keeps their status
+    assert o.typing_bar.get_visible() and o.typing_label.get_text() == "Friend 5 is typing…"
+    assert o.header_line.get_text() == "🍕 brb dinner"
+    o._set_typing([])
+    assert not o.typing_bar.get_visible() and o.header_line.get_text() == "🍕 brb dinner"
+    print("typing: '… is typing' above the reply box (header keeps the status); gone when they stop", flush=True)
 
 
 def muted_elsewhere(o):

@@ -92,6 +92,15 @@ def install(main, respond_extra=None):
                     "members": 5678}
         if method == "openDM":
             return "F2"
+        if method == "setMuted":  # (kind, id, seconds or None) applied to the fake cards, as Discord would
+            kind, row_id, seconds = args
+            muted = seconds is not None
+            ends = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + seconds)) if muted and seconds > 0 \
+                else None
+            for card in (SERVERS if kind == "server" else FRIENDS + CHANNELS):
+                if card["id"] == row_id:
+                    card.update(muted=muted, mutedSelf=muted, muteEnds=ends)
+            return True
         if method == "olderPosts":  # like Discord: the next page arrives a moment later, as a list change
             forum = POSTS[args[0]]
             forum["loading"] = True

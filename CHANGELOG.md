@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0
+
+- Mute from the list: right-click a server, channel or DM → Mute ▸ for 15 minutes, 1 / 3 / 8 / 24 hours or until
+  you turn it back on, like Discord's menu (synced with Discord). Muted ones are dimmed, now including DMs; the
+  menu then offers Unmute, with when the mute ends. When a timed mute ends, the row un-dims right then.
+- Muted DMs no longer count towards the Friends tab's ping count and unread dot (like muted servers on the
+  Servers tab).
+- The server member list updates smoothly while open: only the people who changed are redrawn (in a big server
+  it changes about once a second, and redrawing hundreds of rows each time stuttered).
+- "… is typing" now shows like Discord's: with pulsing dots just above the reply box (in space kept free below
+  the last message, so it never covers one). The line under a friend's name at the top keeps their status.
+
 ## 1.6.0
 
 - Server member lists: in a server chat, click the server's name (▾) in the header for the

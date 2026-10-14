@@ -25,6 +25,7 @@
     const ChannelMembers = store("ChannelMemberStore"); // a channel's member list, as Discord's sidebar shows it
     const MemberCounts = store("GuildMemberCountStore");
     const PrivateChannels = find("getOrEnsurePrivateChannel");
+    const Notifications = find("updateGuildNotificationSettings", "updateChannelOverrideSettings"); // (muting)
     let StatusSetting = null;
     try { StatusSetting = Vencord.Api.UserSettings.getUserSetting("status", "status") ?? null; } catch { }
     let CustomStatusSetting = null; // your custom status: { text, emojiId ("0": none), emojiName, expiresAtMs, ... }
@@ -96,9 +97,15 @@
     const guildIcon = g =>
         g.icon ? absolute(C.IconUtils.getGuildIconURL({ id: g.id, icon: g.icon, canAnimate: false, size: ICON_SIZE })) : null;
 
-    const channelMuted = ch =>
-        !!ch.guild_id && (C.UserGuildSettingsStore.isMuted(ch.guild_id)
-            || C.UserGuildSettingsStore.isChannelMuted(ch.guild_id, ch.id));
+    // Muted (dimmed in the lists): a DM / group DM you muted; a channel you muted, in a muted category, or in a
+    // muted server.
+    const channelMuted = ch => ch.guild_id
+        ? C.UserGuildSettingsStore.isMuted(ch.guild_id)
+            || !!(C.UserGuildSettingsStore.isGuildOrCategoryOrChannelMuted?.(ch.guild_id, ch.id)
+                ?? C.UserGuildSettingsStore.isChannelMuted(ch.guild_id, ch.id))
+        : !!C.UserGuildSettingsStore.isChannelMuted(null, ch.id);
+    // When your own mute of this server / channel / DM ends (an ISO time), or null: muted until you unmute.
+    const muteEnd = config => (config?.end_time ? config.end_time : null);
 
     // Turn raw message markup (<@id>, <#id>, <:emoji:id>) into readable text.
     function cleanContent(text, guildId) {
@@ -688,6 +695,8 @@
             unread: C.ReadStateStore.hasUnread(ch.id),
             mentions: C.ReadStateStore.getMentionCount(ch.id),
             muted: channelMuted(ch),
+            mutedSelf: !!C.UserGuildSettingsStore.isChannelMuted(ch.guild_id ?? null, ch.id), // (not via its server)
+            muteEnds: muteEnd(C.UserGuildSettingsStore.getChannelMuteConfig?.(ch.guild_id ?? null, ch.id)),
             last: snowflakeTime(ch.lastMessageId),
             lastId: ch.lastMessageId ?? null,
             preview: withPreview ? previewFor(ch) : null,
@@ -876,6 +885,7 @@
                 "server channels as Discord shows them": [ChannelList],
                 "forums and threads": [ActiveThreads, JoinedThreads, ArchivedThreads, ThreadActions, C.SnowflakeUtils],
                 "server member lists": [ChannelMembers, MemberCounts, PrivateChannels],
+                "muting": [Notifications],
                 "messages": [C.MessageStore, C.MessageActions, C.RestAPI, Markdown],
                 "sending messages": [Parser, U?.sendMessage],
                 "emoji": [EmojiData, EmojiUtils, C.EmojiStore],
@@ -926,6 +936,7 @@
                     unread: C.GuildReadStateStore.hasUnread(g.id),
                     mentions: C.GuildReadStateStore.getMentionCount(g.id),
                     muted: C.UserGuildSettingsStore.isMuted(g.id),
+                    muteEnds: muteEnd(C.UserGuildSettingsStore.getMuteConfig?.(g.id)),
                     last: snowflakeTime(latest?.lastMessageId),
                     lastId: latest?.lastMessageId ?? null,
                     preview: preview && { ...preview, channel: latest.name },
@@ -1042,6 +1053,23 @@
             });
             return { rows, total: props?.rows?.length ?? 0,
                      online: MemberCounts?.getOnlineCount?.(gid) ?? null, members: MemberCounts?.getMemberCount?.(gid) ?? null };
+        },
+
+        // Mute a server ("server") or a channel / DM ("channel") for `seconds` (-1: until you unmute), or unmute it
+        // (seconds null): as Discord's own menu does, synced to your account.
+        setMuted(kind, id, seconds) {
+            const settings = seconds == null ? { muted: false } : {
+                muted: true,
+                mute_config: { selected_time_window: seconds,
+                               end_time: seconds > 0 ? new Date(Date.now() + seconds * 1000).toISOString() : null },
+            };
+            if (kind === "server") {
+                Notifications.updateGuildNotificationSettings(id, settings);
+            } else {
+                const ch = C.ChannelStore.getChannel(id);
+                Notifications.updateChannelOverrideSettings({ guildId: ch?.guild_id ?? null, channelId: id, settings });
+            }
+            return true;
         },
 
         // Your DM with someone, started if you don't have one yet (as Discord's "Message" does): its channel id.

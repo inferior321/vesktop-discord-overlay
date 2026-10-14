@@ -19,6 +19,7 @@ class MembersMixin:
 
     def _build_members(self, anchor):
         self.member_rows = []  # every row seen so far for the open channel (Discord forgets pages scrolled past)
+        self.member_widgets = {}  # (kind, id) -> its widget, reused as the list updates
         self.members_for = None  # the channel those rows are for
         self.members_up_to = MEMBER_PAGE  # rows asked for so far
         self.members_total = 0
@@ -37,6 +38,8 @@ class MembersMixin:
         box.pack_start(scroll, True, True, 0)
         pop.add(box)
         box.show_all()
+        self.members_loading = label("Loading…", "member-activity")
+        self.members_loading.show()
 
     # ---------- opening ----------
 
@@ -51,6 +54,9 @@ class MembersMixin:
             return
         if self.members_for != self.channel_id:
             self.member_rows, self.members_for, self.members_up_to = [], self.channel_id, MEMBER_PAGE
+            for widget in self.member_widgets.values():
+                widget.destroy()
+            self.member_widgets = {}
             self.members_scroll.get_vadjustment().set_value(0)
         self.members_title.set_text(self.header_place.get_text().split(" › ")[0])
         self._render_members()
@@ -100,44 +106,34 @@ class MembersMixin:
     # ---------- the list ----------
 
     def _render_members(self):
-        scroll = self.members_scroll.get_vadjustment().get_value()
-        for child in self.members_list.get_children():
-            child.destroy()
+        """Show the rows, reusing each person's / heading's widgets (only what changed is redrawn): in a big server
+        the list changes about once a second while it's open, and rebuilding hundreds of rows each time stutters."""
+        wanted = []
         for row in self.member_rows:
             if row is None:
                 continue
-            if row["kind"] == "group":
-                count = f" — {count_text(row['count'])}" if row.get("count") is not None else ""
-                self.members_list.pack_start(label(f"{row['title'].upper()}{count}", "list-heading"), False, False, 6)
-            else:
-                self.members_list.pack_start(self._member_row(row), False, False, 0)
-        if not any(self.member_rows):
-            self.members_list.pack_start(label("Loading…", "member-activity"), False, False, 0)
-        self.members_list.show_all()
-        GLib.idle_add(self.members_scroll.get_vadjustment().set_value, scroll)
-
-    def _member_row(self, member):
-        """Picture with the status dot, name in their role colour, what they're up to; click for a menu."""
-        events = add_class(Gtk.EventBox(), "member-row")
-        row = Gtk.Box(spacing=10, margin=3)
-        face = Avatar(self.images, MEMBER_AVATAR)
-        face.set(member["avatar"], member["name"][:1].upper(), member["status"])
-        row.pack_start(face, False, False, 0)
-        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
-        name = label(member["name"] + (" 👑" if member["owner"] else "") + (" · bot" if member["bot"] else ""),
-                     "member-name", ellipsize=True)
-        if member.get("color"):
-            name.set_markup(f'<span foreground="{member["color"]}">{GLib.markup_escape_text(name.get_text())}</span>')
-        texts.pack_start(name, False, False, 0)
-        if member.get("activity"):
-            texts.pack_start(label(member["activity"], "member-activity", ellipsize=True), False, False, 0)
-        row.pack_start(texts, True, True, 0)
-        events.add(row)
-        events.connect("button-press-event", lambda _w, event: event.button in (1, 3) and (
-            self._member_menu(member, event) or True))
-        events.connect("realize", lambda w: w.get_window().set_cursor(
-            Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
-        return events
+            key = (row["kind"], row["id"])
+            widget = self.member_widgets.get(key)
+            if widget is None:
+                widget = self.member_widgets[key] = MemberRow(self) if row["kind"] == "member" else GroupHeading()
+                widget.show_all()
+            widget.update(row)
+            wanted.append(widget)
+        if not wanted:
+            wanted = [self.members_loading]
+        children = self.members_list.get_children()
+        if children != wanted:  # someone joined, left or moved: add / remove / move just those rows
+            scroll = self.members_scroll.get_vadjustment().get_value()
+            keep = set(wanted)
+            for child in children:
+                if child not in keep:
+                    self.members_list.remove(child)
+            present = set(self.members_list.get_children())
+            for index, widget in enumerate(wanted):
+                if widget not in present:
+                    self.members_list.pack_start(widget, False, False, 0)
+                self.members_list.reorder_child(widget, index)
+            GLib.idle_add(self.members_scroll.get_vadjustment().set_value, scroll)
 
     def _member_menu(self, member, event):
         items = [("Message", lambda: self._message_member(member))]
@@ -164,3 +160,56 @@ class MembersMixin:
         before = "" if position == 0 or text[position - 1] == " " else " "
         insert = f"{before}@{member['username']} "
         self.reply.set_position(self.reply.insert_text(insert, position))
+
+
+class GroupHeading(Gtk.Label):
+    """A role group's heading: "MODERATORS — 3"."""
+
+    def __init__(self):
+        super().__init__(xalign=0)
+        add_class(self, "list-heading")
+        self.set_margin_top(6)
+        self.set_margin_bottom(2)
+        self.data = None
+
+    def update(self, group):
+        if group == self.data:
+            return
+        self.data = group
+        count = f" — {count_text(group['count'])}" if group.get("count") is not None else ""
+        self.set_text(f"{group['title'].upper()}{count}")
+
+
+class MemberRow(Gtk.EventBox):
+    """One person: picture with the status dot, name in their role colour, what they're up to; click for a menu."""
+
+    def __init__(self, overlay):
+        super().__init__()
+        add_class(self, "member-row")
+        self.data = None
+        row = Gtk.Box(spacing=10, margin=3)
+        self.face = Avatar(overlay.images, MEMBER_AVATAR)
+        row.pack_start(self.face, False, False, 0)
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+        self.name = label("", "member-name", ellipsize=True)
+        self.activity = label("", "member-activity", ellipsize=True)
+        self.activity.set_no_show_all(True)
+        texts.pack_start(self.name, False, False, 0)
+        texts.pack_start(self.activity, False, False, 0)
+        row.pack_start(texts, True, True, 0)
+        self.add(row)
+        self.connect("button-press-event", lambda _w, event: event.button in (1, 3) and (
+            overlay._member_menu(self.data, event) or True))
+        self.connect("realize", lambda w: w.get_window().set_cursor(
+            Gdk.Cursor.new_from_name(w.get_display(), "pointer")))
+
+    def update(self, member):
+        if member == self.data:
+            return
+        self.data = member
+        self.face.set(member["avatar"], member["name"][:1].upper(), member["status"])
+        text = GLib.markup_escape_text(member["name"] + (" 👑" if member["owner"] else "")
+                                       + (" · bot" if member["bot"] else ""))
+        self.name.set_markup(f'<span foreground="{member["color"]}">{text}</span>' if member.get("color") else text)
+        self.activity.set_text(member.get("activity") or "")
+        self.activity.set_visible(bool(member.get("activity")))
